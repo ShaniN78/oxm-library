@@ -1,0 +1,16 @@
+boolean Boolean
+positiveinteger UInteger
+nonnegativeinteger UInteger
+integer Integer
+date DateTime
+time DateTime
+id String
+anyuri String
+duration TimeSpan
+dateTime DateTime
+string String
+int System.Int32
+bool  System.Boolean
+double System.Double
+float System.Single
+decimal System.Decimal

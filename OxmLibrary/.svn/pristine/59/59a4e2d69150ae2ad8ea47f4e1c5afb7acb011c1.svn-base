@@ -1,0 +1,447 @@
+﻿//////////////////////////////////////////////////////////////////////////
+/// Obsolete And Full of bugs
+//////////////////////////////////////////////////////////////////////////
+
+//namespace OxmLibrary
+//{
+//    using System;
+//    using System.Collections.Generic;
+//    using System.IO;
+//    using System.Linq;
+//    using System.Text;
+//    using System.Xml.Linq;
+
+//    [Obsolete]
+//    public class OxmGenerator2
+//    {
+//        #region Fields
+
+//        private bool _addSerializeableAttribute;
+//        private XElement _theRoot;
+//        private string _theXmlText = string.Empty;
+//        private Dictionary<string, ClassDescriptor> classes;
+//        private string currentNameSpace;
+
+//        //data types ladder, the higher - the more general classes
+//        private static Dictionary<int, string> dataTypes = 
+//        new Dictionary<int,string> { { 4,"string" }, {3,"float"},{2,"long"},{1,"int"},{0, "bool"}};
+
+//        #endregion Fields
+
+//        #region Constructors
+
+//        public OxmGenerator2()
+//        {
+//            Indent = 4;
+//            currentNameSpace = "OxmGenerator";
+//            classes = new Dictionary<string, ClassDescriptor>();
+//            //             DataTypesLadder = new Dictionary<int, string>();
+//            //             DataTypesLadder.Add(4, "string");
+//            //             DataTypesLadder.Add(3, "float");
+//            //             DataTypesLadder.Add(2, "long");
+//            //             DataTypesLadder.Add(1, "int");
+//            //             DataTypesLadder.Add(0, "bool");
+//        }
+
+//        public OxmGenerator2(string xml, bool dummy)
+//            : this()
+//        {
+//            _theXmlText = xml;
+//            _theRoot = XElement.Parse(xml);
+//        }
+
+//        public OxmGenerator2(string path)
+//            : this()
+//        {
+//            _theXmlText = File.ReadAllText(path);
+//            _theRoot = XElement.Parse(_theXmlText);
+//        }
+
+//        #endregion Constructors
+
+//        #region Properties
+
+//        public string[] ClassNames
+//        {
+//            get
+//            {
+//                return classes.Keys.ToArray();
+//            }
+//        }
+
+//        public int Indent
+//        {
+//            get;
+//            set;
+//        }
+
+//        #endregion Properties
+
+//        #region Methods
+
+//        public string AddFile(string fileN)
+//        {
+//            _theXmlText = File.ReadAllText(fileN);
+//            XElement temp = XElement.Parse(_theXmlText);
+//            if (temp.Name.LocalName != _theRoot.Name.LocalName)
+//            {
+//                return "File does not match root element";
+//            }
+//            TurnElementIntoClass(temp, 1);
+//            return "Successful parsing...";
+//        }
+
+//        public void AddProperty(TextWriter writer, string ClassName, string PName, string AsType)
+//        {
+//            if (classes.Keys.Contains(ClassName))
+//            {
+//                ClassDescriptor cls = classes[ClassName];
+//                if (!cls.Keys.Contains(PName))
+//                {
+//                    PropertyDescriptor prop = new PropertyDescriptor();
+//                    prop.PName = PName;
+//                    prop.PMaxCount = 1;
+//                    prop.PType = AsType;
+//                    if (AsType.ToLower() != "string" && AsType.ToLower() != "int" && AsType.ToLower() != "bool")
+//                        prop.Complex = true;
+//                    else
+//                        prop.Complex = false;
+//                    prop.PMaxCount = 1;
+//                    cls.Add(prop.PName, prop);
+//                    writer.WriteLine("Property {0} added to {1}", PName, ClassName);
+//                }
+//                else
+//                    writer.WriteLine("Property {0} already exists in {1}", PName, ClassName);
+//            }
+//            else
+//                writer.WriteLine("No such class - {0}", ClassName);
+//        }
+
+//        public string AddText(string xml)
+//        {
+//            try
+//            {
+//                XElement temp = XElement.Parse(xml);
+//                if (temp.Name.LocalName != _theRoot.Name.LocalName)
+//                {
+//                    return "Text does not match";
+//                }
+//                TurnElementIntoClass(temp, 1);
+//                return "Successful parsing...";
+//            }
+//            catch
+//            {
+//                return "Invalid Xml";
+//            }
+//        }
+
+//        public void DumpStatus(TextWriter textWriter, bool verbose)
+//        {
+//            textWriter.WriteLine("\nStatus:");
+//            textWriter.WriteLine("{0} - Classes", classes.Count);
+//            foreach (ClassDescriptor cls in classes.Values)
+//            {
+//                textWriter.WriteLine("class {0} - {1} properties", cls.ClassName, cls.Values.Count);
+//                if (verbose)
+//                    foreach (PropertyDescriptor aProp in cls.Values)
+//                    {
+//                        textWriter.WriteLine("   Property {0} : {1} - {2}", aProp.PName, aProp.PType, aProp.PMaxCount);
+//                    }
+//            }
+//        }
+
+//        public void DumpStatus(TextWriter textWriter, string p)
+//        {
+//            if (classes.Keys.Contains(p))
+//            {
+//                ClassDescriptor desc = classes[p];
+//                textWriter.WriteLine("Class {0} - Status", desc.ClassName);
+//                foreach (PropertyDescriptor aProp in desc.Values)
+//                {
+//                    textWriter.WriteLine("   Property {0} : {1} - {2}", aProp.PName, aProp.PType, aProp.PMaxCount);
+//                }
+//            }
+//            else
+//                textWriter.WriteLine("\nNo Such Class\n");
+//        }
+
+//        public void FinishCreating()
+//        {
+//            StringBuilder theFile = new StringBuilder();
+//            generator.CodeGenerator.WriteFileTemplateHeader(theFile, currentNameSpace);
+//            AddFactoryLayer(theFile);
+//            CreateClassesCs(theFile);
+//            theFile.Append(TextHelper.closer); //Close NameSpace
+//            WriteFile(theFile);
+//        }
+
+//        public void MakeArray(TextWriter textWriter, string ClassName, string PName)
+//        {
+//            if (classes.Keys.Contains(ClassName))
+//            {
+//                ClassDescriptor cls = classes[ClassName];
+//                if (cls.Keys.Contains(PName))
+//                {
+//                    PropertyDescriptor prop = cls[PName];
+//                    prop.PMaxCount = 10;
+//                }
+//            }
+//        }
+
+//        public void StartCreating(bool serializeAttrubite)
+//        {
+//            TurnElementIntoClass(_theRoot, 1);
+//            _addSerializeableAttribute = serializeAttrubite;
+//        }
+
+//        //Recursively build the class dictionary
+//        public void TurnElementIntoClass(XElement element, int depth)
+//        {
+//            ClassDescriptor descriptor;
+//            if (classes.ContainsKey(element.Name.LocalName))
+//            {
+//                descriptor = classes[element.Name.LocalName];
+//            }
+//            else
+//            {
+//                descriptor = new ClassDescriptor();
+//                descriptor.Depth = depth;
+//                descriptor.HasInnerTextProperty = false;
+//                descriptor.OxmName = element.Name.LocalName + "oxm";
+//                classes.Add(element.Name.LocalName, descriptor);
+//            }
+
+//            ParseAttributes(element.Attributes(), descriptor);
+//            ParseElements(element.Elements(), descriptor, depth, element.Name.LocalName);
+//        }
+
+//        private void AddFactoryLayer(StringBuilder theFile)
+//        {
+//            string localName = _theRoot.Name.LocalName;
+//            if (_addSerializeableAttribute)
+//                theFile.Append("[Serializable()]" + TextHelper.LINEDOWN);
+//            theFile.AppendFormat("public class {0}Factory : ElementBase", localName);
+//            TextHelper.FactoryName = localName + "Factory";
+//            theFile.AppendLine();
+//            theFile.Append(TextHelper.opener);
+//            theFile.Append("public override string ElementName" + TextHelper.LINEDOWN);
+//            theFile.Append(TextHelper.opener);
+//            theFile.Append("get { return \"Non Refundable\"; }" + TextHelper.LINEDOWN);
+//            theFile.Append(TextHelper.closer);
+
+//            theFile.Append(
+//                string.Format("public override ElementBase Produce(string element, string param)"));
+//            theFile.AppendLine();
+//            theFile.Append(TextHelper.opener);
+//            theFile.Append("switch (element)");
+//            theFile.AppendLine();
+//            theFile.Append(TextHelper.opener);
+//            foreach (ClassDescriptor cls in classes.Values)
+//            {
+//                theFile.AppendFormat("case \"{0}\":", cls.ClassName);
+//                theFile.AppendLine();
+//                theFile.AppendFormat("   return new {0}({1});", cls.OxmName, (cls.ClassName == localName ? "param" : ""));
+//                theFile.AppendLine();
+//            }
+//            theFile.Append(TextHelper.closer);
+//            theFile.Append("return null;");
+//            theFile.AppendLine();
+//            theFile.Append(TextHelper.closer);
+//            theFile.Append(TextHelper.closer);
+//        }
+
+//        private void CreateClassesCs(StringBuilder theFile)
+//        {
+//            foreach (ClassDescriptor aClass in classes.Values)
+//            {
+//                if (_addSerializeableAttribute)
+//                    theFile.Append("[Serializable()]" + TextHelper.LINEDOWN);
+//                theFile.Append(aClass);
+//            }
+//        }
+
+//        ///<summary>
+//        /// try to downgrade data type using the data types ladder <see>DataTypesLadder</see>
+//        /// </summary>
+//        private string DownGrade(string p, string p_2)
+//        {
+//            if (p == p_2)
+//                return p;
+//            var key1 = (from KeyValuePair<int, string> kvp1 in dataTypes
+//                        where kvp1.Value == p
+//                        select kvp1.Key).SingleOrDefault();
+//            var key2 = (from KeyValuePair<int, string> kvp2 in dataTypes
+//                        where kvp2.Value == p_2
+//                        select kvp2.Key).SingleOrDefault();
+//            var newtype = dataTypes[Math.Max(key1, key2)];
+
+//            if (newtype != null)
+//                return newtype;
+//            return p;
+//        }
+
+//        /// <summary>
+//        /// get all attributes name type (case insensitive
+//        /// </summary>
+//        /// <param name="attributes"></param>
+//        /// <returns></returns>
+//        private string GetTypeAttribute(IEnumerable<XAttribute> attributes)
+//        {
+//            var type = (from att in attributes
+//                        where att.Name.LocalName.ToLower() == "type"
+//                        select att.Value.ToLower()).FirstOrDefault();
+//            return type;
+//        }
+
+//        private XAttribute GetValueAttribute(XElement oneRes)
+//        {
+//            var k = oneRes.Attribute("value");
+//            if (k != null)
+//                return k;
+//            k = oneRes.Attribute("Value");
+//            return k;
+//        }
+
+//        private void ParseAttributes(IEnumerable<XAttribute> iEnumerable, ClassDescriptor descriptor)
+//        {
+//            var attributes = from att in iEnumerable
+//                             select att;
+//            int attempt;
+//            long longattempt;
+//            float floatattempt;
+//            bool tryToParseBool;
+//            foreach (var oneAtt in attributes)
+//            {
+//                PropertyDescriptor prop = new PropertyDescriptor();
+//                prop.IsAttribute = true;
+//                prop.PName = oneAtt.Name.LocalName;
+//                prop.PMaxCount = 1;
+//                prop.Complex = false;
+//                if (int.TryParse(oneAtt.Value, out attempt))
+//                    prop.PType = "int";
+//                else if (long.TryParse(oneAtt.Value, out longattempt))
+//                    prop.PType = "long";
+//                else if (float.TryParse(oneAtt.Value, out floatattempt))
+//                    prop.PType = "float";
+//                else if (bool.TryParse(oneAtt.Value, out tryToParseBool))
+//                    prop.PType = "bool";
+//                else
+//                    prop.PType = "string";
+//                if (descriptor.Keys.Contains(prop.PName))
+//                {
+//                    descriptor[prop.PName].PType = DownGrade(prop.PType, descriptor[prop.PName].PType);
+//                    descriptor[prop.PName].PMaxCount = Math.Max(prop.PMaxCount, descriptor[prop.PName].PMaxCount);
+//                }
+//                else
+//                    descriptor.Add(prop.PName, prop);
+//            }
+//        }
+
+//        private void ParseElements(IEnumerable<XElement> iEnumerable, ClassDescriptor descriptor, int depth, string className)
+//        {
+//            int attempt;
+//            long longattempt;
+//            float floatattempt;
+//            bool tryToParseBool;
+//            var parseIt = from elem in iEnumerable
+//                          group elem by elem.Name into oneOfThem
+//                          select new
+//                          {
+//                              Elements = oneOfThem,
+//                              Count = oneOfThem.Count()
+//                          };
+//            foreach (var element in parseIt)
+//            {
+//                if (element.Elements.First().Name.LocalName.ToLower() == "enum")
+//                    continue;
+//                foreach (var oneRes in element.Elements)
+//                {
+//                    PropertyDescriptor prop = new PropertyDescriptor();
+//                    prop.PName = oneRes.Name.LocalName;
+//                    prop.PMaxCount = element.Count;
+//                    string localName = oneRes.Name.LocalName;
+//                    string value = oneRes.Value;
+//                    string typeAtt = GetTypeAttribute(oneRes.Attributes());
+//                    int atts = oneRes.Attributes().Count();
+//                    XAttribute valueAtt = GetValueAttribute(oneRes);
+//                    if (oneRes.Elements().Count() == 0 && atts == 1 && oneRes.Attributes().First().Name.LocalName.ToLower() == "xmlns")
+//                        atts--;
+//                    if (oneRes.Elements().Count() == 0 && atts == 1 && valueAtt != null)
+//                    {
+//                        atts--;
+//                        value = valueAtt.Value;
+//                    }
+//                    int number = oneRes.Elements().Count() + atts;
+//                    if (typeAtt == "enum")//Ignore enums for a while, the XML probably describes
+//                    {//data schema
+//                    }
+//                    if (number > 0)
+//                    {
+//                        TurnElementIntoClass(oneRes, depth + 1);
+//                        prop.PType = localName + "oxm";
+//                        prop.Complex = true;
+//                    }
+//                    else
+//                    {
+//                        prop.Complex = false;
+//                        if (int.TryParse(value, out attempt))
+//                            prop.PType = "int";
+//                        else if (long.TryParse(value, out longattempt))
+//                            prop.PType = "long";
+//                        else if (float.TryParse(value, out floatattempt))
+//                            prop.PType = "float";
+//                        else if (bool.TryParse(value, out tryToParseBool))
+//                            prop.PType = "bool";
+//                        else
+//                            prop.PType = "string";
+//                    }
+//                    if (descriptor.Keys.Contains(localName))
+//                    {
+//                        descriptor[localName].PType = DownGrade(prop.PType, descriptor[localName].PType);
+//                        descriptor[localName].PMaxCount = Math.Max(prop.PMaxCount, descriptor[localName].PMaxCount);
+//                    }
+//                    else
+//                        descriptor.Add(localName, prop);
+//                }
+//            }
+//            TryToAddInnerText(parseIt.Count(), descriptor, className);
+//        }
+
+//        private void TryToAddInnerText(int Count, ClassDescriptor descriptor, string className)
+//        {
+//            if (Count == 0 && !descriptor.HasInnerTextProperty)
+//            {
+//                PropertyDescriptor prop = new PropertyDescriptor() { Complex = false, PType = "string", PMaxCount = 1 };
+//                descriptor.HasInnerTextProperty = true;
+//                prop.PName = className + "InnerText";
+//                descriptor.Add(prop.PName, prop);
+//            }
+//        }
+
+//        private void WriteFile(StringBuilder theFile)
+//        {
+//            string[] splitup = theFile.ToString().Split(new char[] { '\n', '\r' }, StringSplitOptions.RemoveEmptyEntries);
+//            string fileName = _theRoot.Name.LocalName + "oxm.design.cs";
+//            StreamWriter newFile = File.CreateText(fileName);
+//            int depth = 0;
+//            for (int i = 0; i < splitup.Length; i++)
+//            {
+//                if (splitup[i].IndexOf('}') != -1 && splitup[i].IndexOf('{') == -1)
+//                    depth--;
+//                splitup[i] = splitup[i].PadLeft(splitup[i].Length + depth * Indent);
+//                newFile.WriteLine(splitup[i]);
+//                if (splitup[i].IndexOf('}') != -1 && splitup[i].IndexOf('{') != -1)
+//                {
+//                    depth--;
+//                }
+//                else if (splitup[i].IndexOf('}') != -1 && i < splitup.Length - 1 && splitup[i + 1].Trim() != "}")
+//                    newFile.WriteLine(' ');
+//                if (splitup[i].IndexOf('{') != -1)
+//                    depth++;
+//            }
+//            newFile.Close();
+//        }
+
+//        #endregion Methods
+//    }
+//}

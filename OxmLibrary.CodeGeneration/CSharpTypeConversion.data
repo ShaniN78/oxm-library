@@ -1,0 +1,16 @@
+﻿boolean bool
+positiveinteger uint
+nonnegativeinteger uint
+integer int
+date DateTime
+time DateTime
+id string
+anyuri string
+duration TimeSpan
+dateTime DateTime
+string string
+int Int32
+bool Boolean
+double Double
+float Single
+decimal Decimal

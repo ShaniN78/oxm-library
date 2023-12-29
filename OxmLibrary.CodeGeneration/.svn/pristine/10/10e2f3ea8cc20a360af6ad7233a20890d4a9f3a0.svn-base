@@ -1,0 +1,362 @@
+﻿using System;
+using System.Collections.Generic;
+using System.Linq;
+using System.Text;
+using System.Xml.Linq;
+
+namespace OxmLibrary.CodeGeneration
+{
+    /// <summary>
+    /// wrap 'n' numbers of schema's inside one Element
+    /// Supports basic operations much similar to normal <code>XElement</code>
+    /// like Elements() and more...
+    /// </summary>
+    public class XSchemaCollection
+    {
+        public Dictionary<string, XElement> SimpleTypesCache { get; private set; } 
+        public Dictionary<string, PropertyDescriptor> PropertiesParsedCache { get; private set; }
+
+        /// <summary>
+        /// The schemas
+        /// </summary>
+        private List<XDocument> schemaCollection = new List<XDocument>();
+        
+        /// <summary>
+        /// Elements index.
+        /// </summary>
+        private Dictionary<string, XElement> elementsIndex;
+
+        private Dictionary<string, XElement> descendentsIndex;
+
+        private Dictionary<string, XSchemaCollection> schemasUnderDifferentNameSpace;
+
+        private bool indexed;
+
+        public XSchemaCollection()
+        {
+            schemasUnderDifferentNameSpace = new Dictionary<string, XSchemaCollection>();
+            SimpleTypesCache = new Dictionary<string, XElement>();
+            PropertiesParsedCache = new Dictionary<string, PropertyDescriptor>();
+        }
+
+        /// <summary>
+        /// Specifices if the Schema was indexed
+        /// Notice: Indexation is in Experimental right now, and yields very small gain in parsing speed      
+        /// on small files, not yet tested upon greater XSD files.
+        /// </summary>
+        public bool Indexed
+        {
+            get
+            {
+                return indexed;
+            }
+        }
+
+        /// <summary>
+        /// Add a document. No checking is performed. any XML document can be added
+        /// </summary>
+        /// <param name="xel"></param>
+        public void Add(XDocument xel)
+        {
+            schemaCollection.Add(xel);
+        }
+
+        public void AddWithNamespace(string prefix, XDocument xel)
+        {
+            XSchemaCollection collect = null;
+            schemasUnderDifferentNameSpace.TryGetValue(prefix, out collect);
+            if (collect == null)
+            {
+                collect = new XSchemaCollection();
+                collect.indexed = this.Indexed;
+                schemasUnderDifferentNameSpace.Add(prefix, collect);
+            }
+            collect.Add(xel);            
+        }
+
+        public void AddWithNamespace(string prefix, XSchemaCollection schema)
+        {
+            if (schemasUnderDifferentNameSpace.ContainsKey(prefix))
+            {
+                schemasUnderDifferentNameSpace[prefix].Add(schema);
+            }
+            else schemasUnderDifferentNameSpace.Add(prefix, schema);            
+        }
+        
+        /// <summary>
+        /// Merge another XSchemaCollection.
+        /// </summary>
+        /// <param name="xsc"></param>
+        public void Add(XSchemaCollection xsc)
+        {
+            foreach (var schema in xsc.schemaCollection)
+            {
+                this.Add(schema);                
+            }
+        }        
+
+        /// <summary>
+        /// Remove XDoucment from the collection
+        /// </summary>
+        /// <param name="xel"></param>
+        public void Remove(XDocument xel)
+        {
+            schemaCollection.Remove(xel);
+        }
+
+
+        /// <summary>
+        /// Check if a document is in the schema
+        /// </summary>
+        /// <param name="xel"></param>
+        /// <returns></returns>
+        public bool Contains(XDocument xel)
+        {
+            return schemaCollection.Contains(xel);
+        }
+
+        /// <summary>
+        /// Get All Elements (first level children) from all XDocuments in schema
+        /// Collection.        
+        /// </summary>
+        /// <returns></returns>
+        public IEnumerable<XElement> Elements()
+        {
+            if (Indexed)
+            {
+                foreach (var element in elementsIndex)
+                {
+                    yield return element.Value;
+                }
+            }
+            else
+            {
+                foreach (var element in schemaCollection)
+                {
+                    foreach (var subelement in element.Elements().First().Elements())
+                    {
+                        yield return subelement;
+                    }
+                }
+            }
+
+            foreach (var xschema in schemasUnderDifferentNameSpace)
+            {
+                foreach (var element in xschema.Value.Elements())
+                {
+                    yield return element;
+                }
+            }
+        }
+
+        /// <summary>
+        /// Get the first element with an attribute "name" equals to the argument
+        /// </summary>
+        /// <param name="name">Value of the 'name' argument to search for</param>
+        /// <returns>XElement or null</returns>
+        public XElement Element(string name)
+        {
+            if (name.Contains(":"))
+            {
+                var split = name.Split(':');
+                name = split[1];
+                var elem = ElementFromSchema(split[0], name);
+                if (elem != null)
+                    return elem;
+            }
+            if (Indexed)
+            {
+                return elementsIndex.ContainsKey(name) ? elementsIndex[name] : null;
+            }
+
+            var element = (from doc in schemaCollection
+                           from elem in doc.Elements()
+                           where elem.Name.LocalName == name
+                           select elem).FirstOrDefault();
+            return element;
+        }
+
+        private XElement ElementFromSchema(string prefix, string element)
+        {
+            if (!schemasUnderDifferentNameSpace.ContainsKey(prefix))
+                return null;
+            return schemasUnderDifferentNameSpace[prefix].Element(element);
+        }
+
+        private XElement DescendentFromSchema(string prefix, string Descendent)
+        {
+            if (!schemasUnderDifferentNameSpace.ContainsKey(prefix))
+                return null;
+            return schemasUnderDifferentNameSpace[prefix].Descendant(Descendent);
+        }
+
+        /// <summary>
+        /// Get the first element with an attribute "name" equals to the argument
+        /// with additional predicates
+        /// </summary>
+        /// <param name="name">Value of the 'name' argument to search for</param>
+        /// <param name="Predict">Extra predicate to check for</param>
+        /// <example>Element("MyElement", el => el.attribute("type") == null)</example>
+        /// <returns>XElement or null</returns>
+        public XElement Element(string name, Predicate<XElement> Predict)
+        {
+            string ElementNameSpace = string.Empty;
+            if (name.Contains(':'))
+            {
+                var split = name.Split(':');
+                ElementNameSpace = split[0];
+                name = split[1];
+            }
+
+            var element = (from elem in Elements()
+                           where name == elem.Name.LocalName && Predict(elem)
+                              //&& ElementNameSpace == elem.Name.NamespaceName
+                           select elem).FirstOrDefault();
+            return element;
+        }
+
+        /// <summary>
+        /// Retrieve element from collection based on a predicate
+        /// </summary>
+        /// <param name="predicate">Predicate to check for</param>
+        /// <returns></returns>
+        public XElement Element(Func<XElement, bool> CheckFor)
+        {            
+            var element = (from elem in Elements()
+                           where CheckFor(elem)
+                           select elem).FirstOrDefault();
+            return element;
+        }
+
+        /// <summary>
+        /// Retrieve elements from colelction based on a predicate
+        /// </summary>
+        /// <param name="predicate">Predicate to check for</param>
+        /// <returns></returns>
+        public IEnumerable<XElement> Elements(Func<XElement, bool> Predicate)
+        {
+            return Elements().Where(Predicate);
+        }
+
+        /// <summary>
+        /// Get the first Descendant with an attribute "name" equals to the argument
+        /// </summary>
+        /// <param name="name">Value of the 'name' argument to search for</param>
+        /// <returns>XElement or null</returns>
+        public XElement Descendant(string name)
+        {
+            if (name.Contains(":"))
+            {
+                var split = name.Split(':');
+                name = split[1];
+                var elem = DescendentFromSchema(split[0], name);
+                if (elem != null)
+                    return elem;
+            }
+            if (Indexed)
+            {
+                return descendentsIndex[name];
+            }
+            foreach (var element in schemaCollection)
+            {
+                var desc = element.Descendants().FirstOrDefault(a => a.Attribute("name") != null && a.Attribute("name").Value == name);
+                if (desc != null)
+                    return desc;
+            }
+            return null;
+        }
+
+        /// <summary>
+        /// Get the first Descendant with an attribute "name" equals to the argument
+        /// with additional predicates
+        /// </summary>
+        /// <param name="name">Value of the 'name' argument to search for</param>
+        /// <param name="Predict">Extra predicate to check for</param>
+        /// <example>Descendant("MyDescendant", el => el.attribute("type") == null)</example>
+        /// <returns>XElement or null</returns>
+        public XElement Descendant(string name, Predicate<XElement> Predicate)
+        {
+            var xel = Descendant(name);
+            return xel == null ? null : (Predicate(xel) ? xel : null);
+        }
+
+        public IEnumerable<XElement> Descendants()
+        {
+            if (Indexed)
+            {
+                foreach (var descendent in descendentsIndex)
+                {
+                    yield return descendent.Value;
+                }
+            }
+            else
+            {
+                foreach (var element in schemaCollection)
+                {
+                    foreach (var subelement in element.Descendants())
+                    {
+                        yield return subelement;
+                    }
+                }                
+            }
+
+            foreach (var xschema in schemasUnderDifferentNameSpace)
+            {
+                foreach (var element in schemaCollection.Descendants())
+                {
+                    yield return element;
+                }
+            }
+        }
+
+        public XElement AcquireSimpleType(string propertyType, XElement elem)
+        {
+            XElement simpleType = null;
+
+            if (SimpleTypesCache.ContainsKey(propertyType))
+            {
+                simpleType = SimpleTypesCache[propertyType];
+            }
+            else if (elem.Name.LocalName == "simpleType")
+            {
+                simpleType = elem;
+                SimpleTypesCache.Add(propertyType, simpleType);
+            }
+            else
+            {
+                simpleType = (Descendants().FirstOrDefault(a => a.Attribute("name") != null && a.Attribute("name").Value == propertyType && a.Name.LocalName == "simpleType"));
+                SimpleTypesCache.Add(propertyType, simpleType);
+            }
+            return simpleType;
+        }
+      
+        /// <summary>
+        /// Perform indexation on the collection.
+        /// </summary>
+        public void PerformIndexation()
+        {
+            indexed = true;
+            elementsIndex = new Dictionary<string, XElement>();
+            descendentsIndex = new Dictionary<string, XElement>();
+
+            foreach (var schema in schemaCollection)
+            {
+                var targetNamespaceAtt = schema.Elements().First().Attribute("targetNamespace");
+                var targetNamespace = targetNamespaceAtt != null ? targetNamespaceAtt.Value : null;
+                foreach (var elem in (schema.Elements().FirstOrDefault(a => a.Name.LocalName == "schema")).Elements())
+                {
+                    var att = elem.Attribute("name");
+                    if (att != null)
+                        elementsIndex.Add(att.Value, elem);
+                }
+
+                foreach (var descendent in schema.Descendants())
+                {
+                    var att = descendent.Attribute("name");
+                    if (att != null && !descendentsIndex.ContainsKey(att.Value))
+                        descendentsIndex.Add(att.Value, descendent);
+                }
+            }
+        }
+    }
+}

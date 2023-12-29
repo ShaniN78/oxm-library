@@ -1,0 +1,228 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<xs:schema id="blbSchema"
+    targetNamespace="http://www.amsalem.co.il/blbSchema.xsd"
+    elementFormDefault="qualified"
+    xmlns="http://www.amsalem.co.il/blbSchema.xsd"
+    xmlns:mstns="http://www.amsalem.co.il/blbSchema.xsd"
+    xmlns:xs="http://www.w3.org/2001/XMLSchema">
+
+ <xs:annotation>
+  <xs:documentation>
+   Building Block For Sql Query-Mapping-Table
+  </xs:documentation>
+ </xs:annotation>
+
+ <xs:element name="component" type="componentType"/>
+
+ <xs:complexType name="componentType">
+  <xs:choice>
+    <xs:element name="sql-queries" maxOccurs="1">
+      <xs:complexType>
+        <xs:sequence>
+          <xs:element name="sql-query" maxOccurs="unbounded" minOccurs="1" type="queryTypeSmall" />
+          <xs:element name="parameter" minOccurs="0" maxOccurs="unbounded" type="parameterType" />
+        </xs:sequence>
+      </xs:complexType>
+    </xs:element>
+   <xs:element name="sql-query" maxOccurs="1" type="queryType" />
+   <xs:element name="sql-mapping" maxOccurs="1" type="mappingType"/>
+   <xs:element name="table" maxOccurs="1" type="tableType"/>
+   <xs:element name="excludelist" maxOccurs="1" type="ExcludeType" />
+   <xs:element name="mail-message" maxOccurs="1" type="MailMessage" />
+   <xs:element name="string-replacer" maxOccurs="1" type="StringReplace" />
+  </xs:choice>
+  <xs:attribute name="building-block" type="blockType" use="required" />
+  <xs:attribute name="path" type="xs:string" use="optional"/>
+  <xs:attribute name="scope" type="globalType" />
+  <xs:attribute name="name" type="xs:string" />
+  <xs:attribute name="version" type="xs:decimal" />
+ </xs:complexType>
+
+ <xs:complexType name="StringReplace">
+  <xs:sequence>
+   <xs:element name="groupList">
+    <xs:complexType id="groupListType" >
+     <xs:sequence>
+      <xs:element name="group" type="replaceGroup" maxOccurs="unbounded" minOccurs="1" />
+     </xs:sequence>
+    </xs:complexType>
+   </xs:element>
+  </xs:sequence>
+  <xs:attribute name="logLevel" type="logLevelType" use="optional" />
+  <xs:attribute name="useRegexForReplace" type="xs:boolean" default="false" use="optional" />
+ </xs:complexType>
+
+ <xs:complexType name="replaceGroup"> 
+  <xs:sequence>
+   <xs:element name="replacingStrings">
+    <xs:complexType id="replaceType">
+     <xs:sequence>
+      <xs:element name="replace" type="replaceType" minOccurs="1" maxOccurs="unbounded" />
+     </xs:sequence>
+    </xs:complexType>
+   </xs:element>
+  </xs:sequence>
+  <xs:attribute name="name" type="xs:string" use="required" />
+  <xs:attribute name="prefixBoundary" type="xs:string" use="optional" default="\b" />
+  <xs:attribute name="suffixBoundary" type="xs:string" use="optional" default="\b" />
+ </xs:complexType>
+
+ <xs:complexType name="replaceType">
+  <xs:attribute name="from" type="xs:string" />
+  <xs:attribute name="to" type="xs:string" />
+ </xs:complexType>
+
+ <xs:complexType name="MailMessage">
+  <xs:sequence>
+   <xs:element name="subject" type="xs:string" />
+   <xs:element name="messagetemplate" type="xs:string" />
+   <xs:element name="parameter" minOccurs="0" maxOccurs="unbounded" type="parameterType" />
+  </xs:sequence>
+  <xs:attribute name="mailport" type="xs:int" use="required" />
+  <xs:attribute name="mailserver" use="optional" default="none">
+   <xs:simpleType>
+    <xs:restriction base="xs:string">
+     <xs:pattern value="(([a-zA-Z0-9]+.){0,5})?[a-zA-Z0-9]+"/>
+    </xs:restriction>
+   </xs:simpleType>
+  </xs:attribute>
+  <xs:attribute name="logLevel" type="logLevelType" />
+ </xs:complexType>
+
+  <xs:complexType name="queryTypeSmall">
+    <xs:sequence>
+      <xs:element name="query" type="xs:string" />      
+    </xs:sequence>
+    <xs:attribute name="queryName" type="xs:string" use="required" />
+    <xs:attribute name="dataSource" type="xs:string" use="required" />
+    <xs:attribute name="readyForObject" type="xs:string" use="optional" />
+    <xs:attribute name="dataProvider" use="optional" default="System.Data.SqlClient">
+      <xs:simpleType>
+        <xs:restriction base="xs:string">
+          <xs:pattern value="(([a-zA-Z]+.){0,5})?[a-zA-Z]+"/>
+        </xs:restriction>
+      </xs:simpleType>
+    </xs:attribute>
+    <xs:attribute name="logLevel" type="logLevelType" />
+  </xs:complexType>
+
+  <xs:complexType name="queryType">
+  <xs:sequence>
+   <xs:element name="query" type="xs:string" />    
+   <xs:element name="parameter" minOccurs="0" maxOccurs="unbounded" type="parameterType" />
+  </xs:sequence>
+  <xs:attribute name="dataSource" type="xs:string" use="required" />
+  <xs:attribute name="readyForObject" type="xs:string" use="optional" />
+  <xs:attribute name="dataProvider" use="optional" default="System.Data.SqlClient">
+   <xs:simpleType>
+    <xs:restriction base="xs:string">
+     <xs:pattern value="(([a-zA-Z]+.){0,5})?[a-zA-Z]+"/>
+    </xs:restriction>
+   </xs:simpleType>
+  </xs:attribute>
+  <xs:attribute name="logLevel" type="logLevelType" />
+ </xs:complexType>
+ <xs:complexType name="tableType">
+  <xs:sequence>
+   <xs:element name="column" minOccurs="1" maxOccurs="unbounded" type="dataBasecolumnType" />
+  </xs:sequence>
+  <xs:attribute name="dataSource" type="xs:string" use="required" />
+  <xs:attribute name="databaseObject" type="xs:string" use="required" />
+ </xs:complexType>
+ <xs:complexType name="mappingType">
+  <xs:sequence>
+   <xs:element name="mapping" type="mappingArray"/>
+  </xs:sequence>
+  <xs:attribute name="dataSource" type="xs:string"/>
+  <xs:attribute name="logLevel" type="logLevelType"/>
+  <xs:attribute name="objectType" type="xs:string"/>
+ </xs:complexType>
+
+ <xs:complexType name="parameterType">
+   <xs:choice minOccurs="0" maxOccurs="unbounded">
+     <xs:element name="parameter" minOccurs="0" maxOccurs="unbounded" type="parameterType" />
+   </xs:choice>
+  <xs:attribute name="name" type="xs:string"/>
+  <xs:attribute name="value" type="xs:string"/>
+  <xs:attribute name="type" type="xs:string" use="optional"/>
+ </xs:complexType>
+ <xs:complexType name="mapType">
+  <xs:attribute name="column" type="xs:string" use="required"/>
+  <xs:attribute name="property" type="xs:string" use="required"/>
+  <xs:attribute name="converter" type="xs:string" use="optional"/>
+  <xs:attribute name="take" use="optional" default="-1,-1">
+   <xs:simpleType>
+    <xs:restriction base="xs:string" >
+     <xs:pattern value="(-)?[0-9]+,(-)?[0-9]+"/>
+    </xs:restriction>
+   </xs:simpleType>
+  </xs:attribute>
+ </xs:complexType>
+ 
+ <xs:complexType name="mappingArray">
+  <xs:sequence>
+   <xs:element name="map" type="mapType" minOccurs="1" maxOccurs="unbounded"/>
+  </xs:sequence>
+ </xs:complexType>
+ 
+ <xs:complexType name="dataBasecolumnType">
+  <xs:attribute name="name" type="xs:string" use="required"/>
+  <xs:attribute name="db-column" type="xs:string" use="optional"/>
+  <xs:attribute name="primary-key" type="xs:boolean" use="optional" default="false" />
+  <xs:attribute name="type" type="xs:string" />
+ </xs:complexType>
+
+ <xs:complexType name="ExcludeType">
+  <xs:sequence>
+   <xs:element name="Category" type="CategoryType" minOccurs="1" maxOccurs="unbounded" />
+  </xs:sequence>
+ </xs:complexType>
+
+ <xs:complexType name="CategoryType">
+  <xs:sequence>
+   <xs:element name="List" type="ListType" minOccurs="1" maxOccurs="1" />
+  </xs:sequence>
+  <xs:attribute name="Name" type="categoryNameType" use="required"/>
+
+ </xs:complexType>
+
+ <xs:complexType name="ListType">
+  <xs:sequence>
+   <xs:element name="Item" type="xs:string" minOccurs="1" maxOccurs="unbounded" />
+  </xs:sequence>
+ </xs:complexType>
+
+ <xs:simpleType name="categoryNameType">
+  <xs:restriction base="xs:string">
+   <xs:enumeration value="FF"/>
+   <xs:enumeration value="FG"/>
+   <xs:enumeration value="FT"/>
+  </xs:restriction>
+ </xs:simpleType>
+ <xs:simpleType name="globalType">
+  <xs:restriction base="xs:string">
+   <xs:enumeration value="global"/>
+   <xs:enumeration value="local"/>
+   <xs:enumeration value="static"/>
+  </xs:restriction>
+ </xs:simpleType>
+ <xs:simpleType name="blockType" >
+  <xs:restriction base="xs:string">
+   <xs:enumeration value="tm.data.SQLQueries" />
+   <xs:enumeration value="tm.data.SQLQuery" />
+   <xs:enumeration value="tm.data.SQLMapping" />
+   <xs:enumeration value="tm.data.SQLTable" />
+   <xs:enumeration value="tm.behaviour.Exclude" />
+   <xs:enumeration value="tm.behaviour.Replace" />
+   <xs:enumeration value="tm.info.Mail" />
+  </xs:restriction>
+ </xs:simpleType>
+ <xs:simpleType name="logLevelType">
+  <xs:restriction base="xs:string">
+   <xs:enumeration value="WIE"/>
+   <xs:enumeration value="WIDE"/>
+   <xs:enumeration value="WAL"/>
+  </xs:restriction>
+ </xs:simpleType>
+
+</xs:schema>

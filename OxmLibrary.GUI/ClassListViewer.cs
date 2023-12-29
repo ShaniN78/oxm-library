@@ -1,0 +1,141 @@
+using System;
+using System.Collections.Generic;
+using System.ComponentModel;
+using System.Drawing;
+using System.Data;
+using System.Linq;
+using System.Text;
+using System.Windows.Forms;
+using OxmLibrary;
+using OxmLibrary.CodeGeneration;
+
+namespace OxmLibrary.GUI
+{
+    public partial class ClassListViewer : UserControl, INotifyPropertyChanged
+    {
+        private ListViewColumnSorter classesSorter;
+
+        public event Func<string, ClassDescriptor> GetClass;
+        public event EventHandler<ClassPropertyViewerSelectionChangedEventArgs> SelectedClassChanged;
+
+        public ClassListViewer()
+        {
+            InitializeComponent();
+
+            classesSorter = new ListViewColumnSorter();
+            classesView.ListViewItemSorter = classesSorter;
+            classesView.AllowDrop = true;            
+        }
+
+        private void classesView_ColumnClick(object sender, ColumnClickEventArgs e)
+        {
+            if (e.Column == classesSorter.SortColumn)
+            {
+                classesSorter.Order = (classesSorter.Order == SortOrder.Ascending) ? SortOrder.Descending : SortOrder.Ascending;
+            }
+            else
+            {
+                classesSorter.Order = SortOrder.Ascending;
+                classesSorter.SortColumn = e.Column;
+            }
+            classesView.Sort();
+        }
+
+        public int SelectionCount
+        {
+            get
+            { return classesView.SelectedIndices.Count;  }
+        }
+
+        public List<string> SelectedClassesNames
+        {
+            get
+            {
+                return classesView.SelectedItems.OfType<ListViewItem>().Select(a => a.Text).ToList();
+            }
+        }
+
+        public void SelectedByName(string name)
+        {
+            classesView.SelectedIndices.Clear();
+            var theItem = classesView.FindItemWithText(name, true, 0, false);
+            theItem.Selected = true;
+            classesView.TopItem = theItem;
+            classesView.Select();
+        }
+
+        private ClassDescriptor selectedClass;
+
+        public ClassDescriptor SelectedClass
+        {
+            get
+            {
+                return selectedClass;
+            }
+            set
+            {
+                if (value != selectedClass)
+                {
+                    selectedClass = value;
+                    RaisePropertyChanged("SelectedClass");
+                }
+            }
+        }
+
+        #region INotifyPropertyChanged Members
+
+        public event PropertyChangedEventHandler PropertyChanged;
+
+        public void DataBind(List<ClassDescriptor> ClassDetails)
+        {
+            classesView.Items.Clear();
+            classesView.Items.AddRange(ClassDetails.Select(a => new ListViewItem(new string[] { a.ClassName, a.Count.ToString(), a.Depth.ToString() })).ToArray());
+        }
+
+        public void RaisePropertyChanged(string propertyName)
+        {
+            if (PropertyChanged != null)
+                PropertyChanged(this, new PropertyChangedEventArgs(propertyName));
+        }
+
+        #endregion
+
+        private void classesView_ItemSelectionChanged(object sender, ListViewItemSelectionChangedEventArgs e)
+        {
+            SelectedClass = GetClass(e.Item.SubItems[0].Text);
+            OnSelectedClassChanged(selectedClass);            
+            //currentGenerator.GetClass();            
+        }
+
+        private void OnSelectedClassChanged(ClassDescriptor selectedClass)
+        {
+            if (SelectedClassChanged != null)
+                SelectedClassChanged(this, new ClassPropertyViewerSelectionChangedEventArgs(selectedClass));
+        }
+
+        public void Clear()
+        {
+            classesView.Items.Clear();
+        }
+
+        private void classesView_MouseClick(object sender, MouseEventArgs e)
+        {
+            OnMouseClick(e);
+        }
+
+        private void classesView_DragOver(object sender, DragEventArgs e)
+        {
+            OnDragOver(e);
+        }
+
+        private void classesView_DragDrop(object sender, DragEventArgs e)
+        {
+            OnDragDrop(e);
+        }
+
+        private void classesView_SelectedIndexChanged(object sender, EventArgs e)
+        {
+
+        }
+    }
+}

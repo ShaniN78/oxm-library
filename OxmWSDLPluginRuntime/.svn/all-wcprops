@@ -1,0 +1,35 @@
+K 25
+svn:wc:ra_dav:version-url
+V 40
+/svn/!svn/ver/66776/OxmWSDLPluginRuntime
+END
+OXMContractSerializer.cs
+K 25
+svn:wc:ra_dav:version-url
+V 65
+/svn/!svn/ver/70946/OxmWSDLPluginRuntime/OXMContractSerializer.cs
+END
+OXMContractSerializerAttribute.cs
+K 25
+svn:wc:ra_dav:version-url
+V 74
+/svn/!svn/ver/70946/OxmWSDLPluginRuntime/OXMContractSerializerAttribute.cs
+END
+OXMMessageInspector.cs
+K 25
+svn:wc:ra_dav:version-url
+V 63
+/svn/!svn/ver/70946/OxmWSDLPluginRuntime/OXMMessageInspector.cs
+END
+OxmLibrary.WSDLRuntime.csproj
+K 25
+svn:wc:ra_dav:version-url
+V 70
+/svn/!svn/ver/70946/OxmWSDLPluginRuntime/OxmLibrary.WSDLRuntime.csproj
+END
+OxmMessageInspectorAttribute.cs
+K 25
+svn:wc:ra_dav:version-url
+V 72
+/svn/!svn/ver/70946/OxmWSDLPluginRuntime/OxmMessageInspectorAttribute.cs
+END

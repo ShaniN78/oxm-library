@@ -1,0 +1,310 @@
+﻿namespace OxmLibrary.CodeGeneration
+{
+    using System;
+    using System.Collections.Generic;
+    using System.Linq;
+    using System.Text;
+
+    using OxmLibrary;
+    using System.Text.RegularExpressions;
+    using OxmLibrary.CodeGeneration;
+    using System.IO;
+
+    public class VBCodeTemplate : CodeTemplateBase
+    {
+        public VBCodeTemplate()
+        {
+            typeConversion = LoadConversionsFromText(OxmLibrary.CodeGeneration.Properties.Resources.CSharpTypeConversion);
+        }
+
+        #region Properties
+
+        public override string SerializableAttribute
+        {
+            get { return "<Serializable()> _\r\n"; }
+        }
+
+        #endregion Properties
+
+        #region Methods
+
+        public override string DisplayName
+        {
+            get { return "Visual Basic"; }
+        }
+
+        public override string Language
+        {
+            get { return "VB"; }
+        }
+
+        public override void WriteAssignFieldWithValue(TextWriter sb, PropertyDescriptor pd)
+        {
+            var value = pd.DefaultValue;
+            if (pd.PType.StartsWith("String"))
+                value = '"' + value + '"';
+            sb.Write("{0} = {1}\r\n", pd.PName, value);
+        }
+
+        public override void WriteClassTemplateFooter(TextWriter sb, ClassDescriptor cd)
+        {
+            sb.WriteLine("End Class\r\n");
+        }
+
+        public override void InnerWriteClassTemplateHeader(TextWriter sb, ClassDescriptor cd, string InheritsFrom, bool enableDataBinding)
+        {
+            sb.Write("Public Partial Class {0}\r\n    {2} {1}\r\n", cd.OxmName, InheritsFrom, InheritsFrom != string.Empty ? "Inherits" : string.Empty);
+            if (enableDataBinding)
+            {
+                sb.Write("    Implements INotifyPropertyChanged\r\n");
+            }
+            sb.WriteLine();
+            if (enableDataBinding)
+            {
+                sb.WriteLine("Public Event PropertyChanged(ByVal sender As Object, ByVal e As System.ComponentModel.PropertyChangedEventArgs) Implements System.ComponentModel.INotifyPropertyChanged.PropertyChanged");
+                sb.WriteLine("Public Sub OnPropertyChanged(ByVal Prop As String)");
+                sb.WriteLine("RaiseEvent PropertyChanged(Me, New PropertyChangedEventArgs(Prop))");
+                sb.WriteLine("End Sub");
+            }
+
+            if (cd.InheritsFrom != "Nothing")
+            {
+                sb.WriteLine("Public Overrides ReadOnly Property ElementName() As String");
+                sb.WriteLine("Get");
+                sb.Write("Return \"{0}\"{1}", cd.ClassName, Environment.NewLine);
+                sb.WriteLine("End Get");
+                sb.WriteLine("End Property");
+            }
+        }
+
+        public static readonly string[] IncreaseIndentOn = { "(End) Sub ", " Function " };
+
+        public override void InternalWriteDefaultValueConstructor(TextWriter sb, ClassDescriptor cd)
+        {
+            sb.WriteLine("Public Sub New()");
+            foreach (var prop in cd.Where(a => !string.IsNullOrEmpty(a.DefaultValue)))
+            {
+                WriteAssignFieldWithValue(sb, prop);
+            }
+            sb.WriteLine("End Sub\r\n");
+        }
+
+        public override void WriteDepthZeroConstructor(TextWriter sb, ClassDescriptor cd)
+        {
+            sb.WriteLine("Public Sub New(xml As String)");
+            sb.WriteLine("Dim _xml As XElement = XElement.Parse(xml)");            
+            sb.WriteLine("Me.MapToPackage(_xml, ElementName)");
+            sb.WriteLine("End Sub\r\n");
+        }
+
+        public override void WriteEmptyConstructor(TextWriter sb, ClassDescriptor cd)
+        {
+            sb.WriteLine("Public Sub New()");
+            sb.WriteLine("End Sub\r\n");
+        }
+
+        public override void WriteEnumeration(TextWriter sb, EnumerationDescriptor ed)
+        {
+            sb.Write("Public Enum {0}enu", ed.Name, TextHelper.LINEDOWN);
+            int i = 1;
+            foreach (var item in ed.ValuesAndComments())
+            {
+                string stripped = TextHelper.TrimNonLetters(item.Key);
+                string value = stripped != item.Key ? "item" + stripped : item.Key;
+                if (stripped != item.Key && value == "item") value += (i++).ToString();
+                string attribute = stripped != item.Key
+                                       ?
+                                           string.Format("<XmlEnumAttribute(\"{0}\")>", item.Key)
+                                       : string.Empty;
+                if (!string.IsNullOrEmpty(item.Value))
+                    sb.Write("\r\n   '''<summary>{0}</summary>\r\n", item.Value);
+                sb.Write("\r\n   {0}{1}", attribute, value);
+            }
+
+            sb.WriteLine("End Enum\r\n");
+        }
+
+        public override void WriteFactoryLayer(TextWriter sb, bool AddSerializeableAttribute, string localName, List<ClassDescriptor> ClassDetails)
+        {
+            if (AddSerializeableAttribute)
+                sb.WriteLine(SerializableAttribute);
+            sb.WriteLine("Public Class New1Factory");
+            sb.WriteLine("   Inherits ElementBase");
+            sb.WriteLine("Public Overrides ReadOnly Property ElementName() As String");
+            sb.WriteLine("Get");
+            sb.WriteLine("Return \"Factory Layer\"");
+            sb.WriteLine("End Get");
+            sb.WriteLine("End Property\r\n");
+
+            sb.WriteLine("Public Overrides Function Produce(element As String, param As String) As ElementBase");
+            sb.WriteLine("Select Case element");
+            foreach (ClassDescriptor cls in ClassDetails.Where(a => a.InheritsFrom != "Nothing"))
+            {
+                sb.Write("Case \"{0}\"\r\n", cls.ClassName);
+                sb.WriteLine();
+                sb.Write("   Return New {0}({1});", cls.OxmName, cls.Depth == 1 ? "param" : string.Empty);
+                sb.WriteLine();
+            }
+            sb.WriteLine("End Select");
+            sb.WriteLine("Return Nothing");
+            sb.WriteLine("End Function");
+            sb.WriteLine("End Class\r\n");
+        }
+
+        public override void WriteFileTemplateFooter(TextWriter sb)
+        {
+            sb.WriteLine("End Namespace");
+        }
+
+        public override void WriteFileTemplateHeader(TextWriter sb, string CurrentNameSpace)
+        {
+            sb.Write("Namespace {0}\r\n", CurrentNameSpace);
+            sb.WriteLine();
+        }
+
+        public override string GetAttribute(string attributeName, params string[]parameters)
+        {
+            var parameter = string.Join(",", parameters);
+            return string.Format("<{0}({1})>_ \r\n", attributeName, parameter);
+        }
+
+        private void WriteAttributes(TextWriter sb, PropertyDescriptor pd, string validationRegex)
+        {
+            if (pd.IsAttribute)
+            {
+                sb.Write("<{0}(\"{1}\")>_ \r\n", TextHelper.XMLATTRIBUTENAME, pd.PName);
+            }
+
+            if (pd.OverRideName != pd.PName && !string.IsNullOrEmpty(pd.OverRideName))
+            {
+                sb.Write("<{0}(\"{1}\")>_ \r\n", TextHelper.OVERRIDEATTRIBUTENAME, pd.OverRideName);
+            }
+
+            if (!string.IsNullOrEmpty(validationRegex))
+            {
+                sb.Write("<{1}(\"{0}\")>_ {2}", validationRegex, TextHelper.OXMREGEXVALIDATOR, Environment.NewLine);
+            }
+        }
+
+        public override void WriteIndexer(TextWriter sb, string PropertyName, string ClassName)
+        {
+            sb.Write("Public Default Property Item(indexer As Integer) As {0}oxm\r\n", ClassName);
+			sb.Write("Get\r\n");
+			sb.Write("Return {0}(indexer)\r\n", PropertyName);
+			sb.Write("End Get\r\n");
+			sb.Write("Set\r\n");
+			sb.Write("{0}(indexer) = value\r\n", PropertyName);
+			sb.Write("End Set\r\n");
+		    sb.Write("End Property\r\n");
+        }
+
+        public override void WriteInnerTextProperty(TextWriter sb, string ClassName)
+        {
+            sb.Write("Public Property {0}InnerText() As String\r\n", ClassName);
+	        sb.WriteLine("Get");
+		    sb.Write("Return m_{0}InnerText\r\n", ClassName);
+            sb.WriteLine("End Get");
+            sb.WriteLine("Set");
+            sb.Write("m_{0}InnerText = Value\r\n", ClassName);
+            sb.WriteLine("End Set");
+            sb.WriteLine("End Property");
+            sb.Write("Private m_{0}InnerText As String\r\n", ClassName);
+        }
+
+        public override void WriteNameSpaceDecleration(TextWriter sb, string NameSpace)
+        {
+            sb.Write("Imports {0}\r\n", NameSpace);
+        }
+
+        public override void WriteXmlComment(TextWriter sb, string Comment)
+        {
+            sb.WriteLine("''' <summary>");
+            foreach (var item in Comment.Split(";\r\n".ToCharArray(), StringSplitOptions.RemoveEmptyEntries))
+            {
+                sb.Write("''' {0}\r\n", item);
+            }
+            sb.WriteLine("''' </summary>");
+        }
+
+        #endregion Methods
+
+        public override bool DecreaseIndentBeforeWriting(string currentLine)
+        {
+            return currentLine.StartsWith("End", StringComparison.OrdinalIgnoreCase)
+                && currentLine.Split(' ').Length == 2;
+        }
+
+        public override bool DecreaseIndentAfterWriting(string currentLine)
+        {
+            return false;
+        }
+
+        public override bool IncreaseIndentAfterWriting(string currentLine)
+        {
+            currentLine = currentLine.Trim();
+            if (currentLine.IndexOf("End ", StringComparison.OrdinalIgnoreCase) == -1)
+            {
+                return currentLine == "Get" || currentLine == "Set" ||
+                    currentLine.StartsWith("Namespace") ||
+                    currentLine.StartsWith("Select Case") ||
+                    Regex.IsMatch(currentLine, @"(Public|Private|Protected)\s(Default\s|Partial\s|Overrides\s)?(ReadOnly\s)?(Sub|Property|Class|Function)");
+            }
+            return false;            
+        }
+
+        public override bool CheckForEmptyLine(string currentLine, string nextLine)
+        {
+            return (DecreaseIndentBeforeWriting(currentLine) && !DecreaseIndentBeforeWriting(nextLine));
+               
+        }
+      
+        public override void InternalWriteFullProperty(TextWriter sb, PropertyDescriptor pd, List<string> Attributes, string propertyType, string validationRegex, GenerationConfiguration config)
+        {
+            var ptype = propertyType;
+            if (pd.PMaxCount > 1)
+                ptype = (config.UseCustomCollections ? config.CollectionTypeForGeneration + "(Of " : string.Empty)
+                        + ptype +
+                        (config.UseCustomCollections ? ")()" : "()");
+
+            sb.Write("Private _{0} As {1}\r\n\r\n", pd.PName, ptype);
+            WriteAttributes(sb, pd, validationRegex);
+            sb.Write("Public Property {0}() As {1}\r\n", pd.PName, ptype);
+            sb.Write("Get\r\n");
+            if (config.UseCustomCollections && pd.PMaxCount > 1)
+            {
+                sb.Write("If _{0} Is Nothing Then\r\n", pd.PName);
+                sb.Write("  _{0} = New {1}(Of RuleCheckeroxm)()\r\n", pd.PName, ptype);
+            }
+            sb.Write("Return _{0}\r\n", pd.PName);
+            sb.Write("End Get\r\n");
+            sb.Write("Set\r\n");
+            sb.Write("_{0} = value\r\n", pd.PName);
+            if (config.EnableDataBinding)
+            {
+                sb.Write("OnPropertyChanged(\"{0}\")\r\n", pd.PName);
+            }
+            sb.Write("End Set\r\n");
+            sb.Write("End Property\r\n");
+        }
+
+        public override void InternalWriteAutomaticProperty(TextWriter sb, PropertyDescriptor pd, List<string> Attributes, string propertyType, string validationRegex, GenerationConfiguration config)
+        {
+            InternalWriteFullProperty(sb, pd, Attributes, propertyType, validationRegex, config);
+        }
+
+        public override string TypeOf(string TypeName)
+        {
+            return string.Format("GetType({0})", TypeName);
+        }
+
+        public override string LanguageNameForCodeDOM
+        {
+            get { return "VB"; }
+        }
+
+        public override void OutPropertyTypeName(System.IO.TextWriter writer, PropertyDescriptor prop)
+        {
+            writer.Write("ByVal {0} As {1}", prop.PName, NormalizeDataType(prop.PType));
+        }
+    }
+}

@@ -1,0 +1,793 @@
+﻿namespace OxmLibrary.GUI
+{
+	using Glass;
+    using System;
+    using System.Collections.Generic;
+    using System.Collections.Specialized;
+    using System.ComponentModel;
+    using System.Data;
+    using System.Diagnostics;
+    using System.Drawing;
+    using System.IO;
+    using System.Linq;
+    using System.Text;
+    using System.Windows.Forms;
+
+    using OxmLibrary;
+
+    using OxmLibrary.GUI;
+    using OxmLibrary.CodeGeneration;
+    using OxmLibrary.GUI.Properties;
+
+    public partial class MainWindow : Form
+    {
+        #region Fields
+
+        public static readonly List<string> BasicDataTypes =
+            TypeHandling.BasicDataTypes;
+
+        //private ListView classesView = new ListView();
+
+        private string language = "OxmLibrary.CodeGeneration.CsharpCodeTemplates";
+        //private SaveFileDialog  = new SaveFileDialog();
+        private TextBoxDialog TextDLG = new TextBoxDialog();
+        private bool changesSinceSave;
+        private Binding checkBoxBinding;
+        private Binding commentsBinding;
+        private OxmGenerator3 currentGenerator;
+        private ClassDescriptor getClass;
+        private MultiSelectForm selectDLG;
+        private StringRedirect myWriter;
+        private Binding textBinding;
+        private string currentGeneratorFileName;
+
+        #endregion Fields
+
+        #region Constructors
+
+        public MainWindow()
+        {
+            InitializeComponent();
+            ChangesWereMade(false);
+            this.Text = Resources.Empty;
+
+            GeneratorExists = false;
+            TextDLG.Hide();
+
+            selectDLG = new MultiSelectForm(this);
+            selectDLG.Hide();
+            myWriter = new StringRedirect(consoleTXT);
+            ////close the text writer - no need for it.
+            myWriter.Close();
+            TextHelper.ConsoleWriter = myWriter;
+            CheckForIllegalCrossThreadCalls = false;
+
+            propertiesView.ShowEnumeration += new GenericEventHandler<string>(propertiesView_ShowEnumeration);
+            propertiesView.GetDataTypes += new GenericEventHandler<string[]>(propertiesView_GetDataTypes);
+            propertiesView.ChangeAllDataTypes += new GenericEventHandler<string, string>(propertiesView_ChangeAllDataTypes);
+            bindMenu();
+        }
+
+        void propertiesView_ChangeAllDataTypes(object sender, GenericEventArgs<string, string> Args)
+        {
+            foreach (var oneClass in currentGenerator.ClassDetails)
+            {
+                foreach (var prop in oneClass.Where(a => a.Value.PType == Args.Item))
+                {
+                    prop.Value.PType = Args.Item2;
+                }
+            }
+        }
+
+        void propertiesView_GetDataTypes(object sender, GenericEventArgs<string[]> Args)
+        {
+            Args.Item = currentGenerator.DataTypes;
+        }
+
+        void propertiesView_ShowEnumeration(object sender, GenericEventArgs<string> Args)
+        {
+            var enumeration = currentGenerator.GetEnum(Args.Item);
+            var stingy = string.Join(",", enumeration.Values.ToArray());
+            MessageBox.Show(enumeration.ToString());
+        }
+
+
+
+        #endregion Constructors
+
+        private string title;
+
+        public new string Text
+        {
+            get
+            {
+                return title;
+            }
+            set
+            {
+                title = value;
+                base.Text = value + (changesSinceSave ? "*" : string.Empty);
+            }
+        }
+
+        #region Methods
+
+        protected override void OnClosing(CancelEventArgs e)
+        {
+            if (changesSinceSave)
+            {
+                if (SaveBeforeQuitting())
+                    e.Cancel = true;
+            }
+        }
+
+        private void addClassBTN_Click(object sender, EventArgs e)
+        {
+            if (currentGenerator == null)
+                return;
+            TextDLG.TextBoxText = string.Empty;
+            TextDLG.SetTitle("New Class Name.");
+            if (TextDLG.ShowDialog(this) == DialogResult.OK)
+            {
+                var className = TextDLG.TextBoxText;
+                if (currentGenerator.AddClass(className))
+                {
+                    eraseAll();
+                    ChangesWereMade(true);
+                }
+                else
+                {
+                    MessageBox.Show("Class Already Exists", className);
+                }
+            }
+        }
+
+        private void addProperty_Click(object sender, EventArgs e)
+        {
+            try
+            {
+                if (propertiesView.CurrentClass == null)
+                {
+                    return;
+                }
+                getClass = propertiesView.CurrentClass;
+
+                TextDLG.SetTitle("Name Of Property");
+                if (TextDLG.ShowDialog(this) != DialogResult.OK)
+                    return;
+
+                var propName = TextDLG.TextBoxText;
+                var listItems = new List<string>(BasicDataTypes);
+                listItems.AddRange(currentGenerator.DataTypes);
+                selectDLG.Items = listItems.ToArray();
+                if (selectDLG.ShowDialog(this) == DialogResult.OK)
+                {
+                    getClass.AddProperty(propName, selectDLG.SelectedText);
+                    ChangesWereMade(true);
+                    ShowClasses();
+                    RebindPropView();
+                }
+            }
+            finally
+            {
+                this.BringToFront();
+            }
+        }
+
+        /// <summary>
+        /// The Method to call when changes were made to the current generator file
+        /// or after saving.
+        /// </summary>
+        /// <param name="value">
+        /// Changed or not changed.
+        /// </param>
+        private void ChangesWereMade(bool value)
+        {
+            changesSinceSave = value;
+            this.Text = title;
+        }
+
+        /// <summary>
+        /// </summary>
+        /// <param name="sender">
+        /// The sender of the event.
+        /// </param>
+        /// <param name="e">
+        /// The EventArgs of the event.
+        /// </param>
+        private void checkSimilarityToolStripMenuItem_Click(object sender, EventArgs e)
+        {
+            getClass = null;
+            RebindPropView();
+            ChangesWereMade(true);
+            currentGenerator.CheckSimilar();
+            ShowClasses();
+        }
+
+        private void chooseDataTypeToolStripMenuItem_Click(object sender, EventArgs e)
+        {
+
+        }
+
+        private void classesView_DragDrop(object sender, DragEventArgs e)
+        {
+            if (currentGenerator == null)
+                return;
+            DataObject dragData = (DataObject)e.Data;
+            if (dragData.ContainsFileDropList())
+            {
+                StringCollection files = dragData.GetFileDropList();
+                foreach (var file in files)
+                {
+                    try
+                    {
+                        if (File.Exists(file))
+                        {
+                            switch (Path.GetExtension(file).ToLower())
+                            {
+                                case ".xml":
+                                    myWriter.WriteLine("Added xml file {0}", file);
+                                    WriteToConsole(currentGenerator.AddFile(file));
+                                    break;
+                                case ".xsd":
+                                    myWriter.WriteLine("Added xsd file {0}", file);
+                                    WriteToConsole(currentGenerator.AddXsd(file) ? "Success" : "Failed");
+                                    break;
+                                default:
+                                    myWriter.WriteLine("didn't add file {0}", file);
+                                    break;
+                            }
+                        }
+                    }
+                    catch (Exception exe)
+                    {
+                        myWriter.WriteLine("Error: {0}", exe.Message);
+                        myWriter.WriteLine("Stack Trace: \r\n{0}", exe.StackTrace);
+                    }
+                }
+                if (files.Count > 0)
+                {
+                    ChangesWereMade(true);
+                }
+            }
+
+            ShowClasses();
+        }
+
+        private void classesView_DragOver(object sender, DragEventArgs e)
+        {
+            e.Effect = currentGenerator == null ? DragDropEffects.None : DragDropEffects.Copy;
+        }
+
+        private void deleteToolStripMenuItem1_Click(object sender, EventArgs e)
+        {
+            foreach (string className in classesView.SelectedClassesNames)
+            {
+                currentGenerator.DeleteClass(className);
+            }
+
+            ChangesWereMade(true);
+            eraseAll();
+            ShowClasses();
+        }
+
+        private void eraseAll()
+        {
+            ShowClasses();
+            getClass = null;
+            RebindPropView();
+        }
+
+        private void exitToolStripMenuItem_Click(object sender, EventArgs e)
+        {
+            Close();
+        }
+
+        private void managePlugins_Click(object sender, EventArgs e)
+        {
+            MultiSelectForm select = new MultiSelectForm(this);
+            select.AddNew += new EventHandler(select_AddNew);
+            select.DeleteItem += new EventHandler<MultiSelectItemEventArgs>(select_DeleteItem);
+            select.DataBind(PluginsHandler.Instance.PlugIns, "AssemblyName", "PlugInName", "FileSupport");
+            select.ShowAddNewButton = true;
+            select.ShowDialog();
+            select.Close();
+            this.BringToFront();
+            //openGenFileDialog.Filter = "XSD Files|*.xsd";
+            //if (openGenFileDialog.ShowDialog(this) == DialogResult.OK)
+            //{
+            //    currentGenerator = OxmGenerator3.FromXsd(openGenFileDialog.FileName, CodeTemplateHandling.GetTemplate(language));
+            //    currentGenerator.Config.PropertyChanged += new PropertyChangedEventHandler(Config_PropertyChanged);
+            //    RebindSerializable();
+            //    eraseAll();
+            //    ChangesWereMade(true);
+            //    GeneratorExists = true;
+            //    RebindText();
+            //}
+        }
+
+        void select_DeleteItem(object sender, MultiSelectItemEventArgs e)
+        {
+            var select = (MultiSelectForm)sender;
+            foreach (var item in e.DeletedItems)
+            {
+                var deleted = (PluginLocation)item;
+                PluginsHandler.Instance.Delete(deleted);   
+            }
+            
+            select.DataBind(PluginsHandler.Instance.PlugIns, "AssemblyName", "PlugInName", "FileSupport");
+            bindMenu();
+        }
+
+        void select_AddNew(object sender, EventArgs e)
+        {
+            var select = (MultiSelectForm)sender;
+            openGenFileDialog.Filter = "Dll Files (*.dll)|*.dll";
+            if (openGenFileDialog.ShowDialog(this) == DialogResult.OK)
+            {
+                var add = PluginsHandler.Instance.Add(openGenFileDialog.FileName);
+                if (add)
+                {
+                    select.DataBind(PluginsHandler.Instance.PlugIns, "AssemblyName", "PlugInName", "FileSupport");
+                    bindMenu();
+                }
+            }
+        }
+
+        private void bindMenu()
+        {
+            while (importSubMenuItem.DropDownItems.Count > 1)
+            {
+                importSubMenuItem.DropDownItems.RemoveAt(1);
+            }
+            
+            foreach (var plugin in PluginsHandler.Instance.PlugIns)
+            {
+                if (plugin.FileSupport == PluginFileFormatSupport.FromLocalFile || plugin.FileSupport == PluginFileFormatSupport.FromLocanAndUrl)
+                {
+                    importSubMenuItem.DropDownItems.Add(GenerateForLocalFile(plugin));
+                }
+                if (plugin.FileSupport == PluginFileFormatSupport.FromUrl || plugin.FileSupport == PluginFileFormatSupport.FromLocanAndUrl)
+                {
+                    importSubMenuItem.DropDownItems.Add(GenerateForUrl(plugin));
+                }
+            }
+        }
+
+        private ToolStripItem GenerateForUrl(PluginLocation plugin)
+        {
+            ToolStripMenuItem item = new ToolStripMenuItem();
+            item.Text = plugin.PlugInName + " From Url";
+            item.Tag = plugin;
+            item.Click += importFromURL;
+            return item;
+        }
+
+        private ToolStripMenuItem GenerateForLocalFile(PluginLocation plugin)
+        {
+            ToolStripMenuItem item = new ToolStripMenuItem();
+            item.Text = plugin.PlugInName + " From Local";
+            item.Tag = plugin;
+            item.Click += fromWsdlUrlToolStripMenuItem_Click;
+            return item;
+        }
+
+        void Config_PropertyChanged(object sender, PropertyChangedEventArgs e)
+        {
+            
+        }
+
+        private void gradientNavigationButton1_Dehighlighted(object sender, EventArgs e)
+        {
+            generateCodeBTN.Image = Resources.biggieButton1 as Image;
+        }
+
+        private void gradientNavigationButton1_Highlighted(object sender, EventArgs e)
+        {
+            generateCodeBTN.Image = Resources.biggieButton21 as Image;
+        }
+
+        private void mergeToolStripMenuItem_Click(object sender, EventArgs e)
+        {
+            var listOfClases = classesView.SelectedClassesNames;
+            selectDLG.Items = listOfClases.ToArray();
+            if (selectDLG.ShowDialog(this) == DialogResult.OK)
+            {
+                this.BringToFront();
+                var mainClass = selectDLG.SelectedText;
+                listOfClases.Remove(selectDLG.SelectedText);
+                currentGenerator.MergeIntoClass(mainClass, listOfClases);
+                eraseAll();
+                ChangesWereMade(true);
+            }
+        }
+
+        /// <summary>
+        /// The event that's fired when the user chooses to generate multiple files.
+        /// </summary>
+        /// <param name="sender">
+        /// The sender of the event
+        /// </param>
+        /// <param name="e">
+        /// The eventargs of the event.
+        /// </param>
+        private void multipleFilesToolStripMenuItem_Click(object sender, EventArgs e)
+        {            
+            chooseGenerationPathDLG.FileName = currentGenerator.GetFileName(currentGenerator.Config.ProjectName);
+            if (chooseGenerationPathDLG.ShowDialog(this) == DialogResult.OK)
+            {
+                currentGenerator.FinishCreating(chooseGenerationPathDLG.FileName);
+                var file = Path.GetDirectoryName(chooseGenerationPathDLG.FileName);
+                if (Directory.Exists(file))
+                {
+                    Process.Start(file);
+                }
+                WriteToConsole("Generation Succesful");
+            }
+        }
+
+        private void newToolStripMenuItem_Click(object sender, EventArgs e)
+        {
+            GeneratorExists = true;
+            currentGenerator = OxmGenerator3.Fresh(CodeTemplateHandling.GetTemplate(language));
+
+            currentGenerator.Config.PropertyChanged += new PropertyChangedEventHandler(Config_PropertyChanged);
+            ChangesWereMade(true);
+            currentGeneratorFileName = null;
+            currentGenerator.Config.ProjectName = "New1";
+            RebindText();
+            eraseAll();
+        }
+
+        private void openToolStripMenuItem_Click(object sender, EventArgs e)
+        {
+            openGenFileDialog.Filter = "GEN Files|*.gen";
+            if (openGenFileDialog.ShowDialog(this) == DialogResult.OK)
+            {
+                currentGenerator = OxmGenerator3.FromGenFile(openGenFileDialog.FileName, CodeTemplateHandling.GetTemplate(language));
+                currentGeneratorFileName = openGenFileDialog.FileName;
+                WriteToConsole("Opened Gen File {0}", openGenFileDialog.FileName);
+
+                GeneratorAssigned();
+            }
+        }
+
+        private void GeneratorAssigned()
+        {
+            currentGenerator.Config.PropertyChanged += new PropertyChangedEventHandler(Config_PropertyChanged);
+            eraseAll();
+            ChangesWereMade(false);
+            GeneratorExists = true;
+            RebindText();
+        }
+
+        public bool GeneratorExists
+        {
+            get
+            {
+                return generatorToolStripMenuItem.Enabled;
+            }
+            set
+            {
+                generatorToolStripMenuItem.Enabled = value;
+                classesToolStripMenuItem.Enabled = value;
+            }
+        }
+
+        private void WriteToConsole(string format, params object[] args)
+        {
+            myWriter.WriteLine(format, args);
+        }
+
+        private void propertiesView_SelectedIndexChanged(object sender, EventArgs e)
+        {
+            if (propertiesView.SelectedPropertiesNames.Count != 1)
+            {
+                return;
+            }
+            commentsTXT.Visible = true;
+            if (commentsBinding != null)
+                commentsTXT.DataBindings.Remove(commentsBinding);
+            var prop = getClass[propertiesView.SelectedPropertyName];
+            commentsBinding = commentsTXT.DataBindings.Add("Text", prop, "Comments");
+            commentsBinding.Parse += (oo, ee) =>
+                {
+                    ee.Value = ((string)ee.Value).Replace("\r\n", ";");
+                };
+        }
+
+        private void RebindAliases()
+        {
+            aliasesList.Items.Clear();
+            if (getClass != null)
+                aliasesList.Items.AddRange(
+                    getClass.Aliases.ToArray());
+        }
+
+        private void RebindInformation()
+        {
+            string info = string.Format("Inherits From:{0}\r\n",
+                getClass.InheritsFrom != string.Empty ? getClass.InheritsFrom : "Base Class");
+            //informationTXT.Text = info;
+        }
+
+        private void RebindPropView()
+        {
+            propertiesView.Clear();
+            if (getClass != null)
+            {
+                propertiesView.DisplayClass(getClass);
+            }
+        }
+
+        private void RebindText()
+        {
+            if (textBinding != null)
+                this.DataBindings.Remove(textBinding);
+            textBinding = this.DataBindings.Add("Text", currentGenerator.Config, "ProjectName", false, DataSourceUpdateMode.OnPropertyChanged);
+        }
+
+        private bool SaveBeforeQuitting()
+        {
+            var res = MessageBox.Show("Save Before Quitting", "Save", MessageBoxButtons.YesNoCancel);
+            if (res == DialogResult.Cancel)
+                return true;
+            if (res == DialogResult.Yes)
+                SaveGenFile();
+            return false;
+        }
+
+        private void SaveGenFile()
+        {
+            if (currentGeneratorFileName == null)
+            {
+                SaveAsGenFile();
+                return;
+            }
+            currentGenerator.Save(currentGeneratorFileName);
+            ChangesWereMade(false);
+            WriteToConsole("Save Succesful");
+        }
+
+        private void SaveAsGenFile()
+        {
+            if (saveGenFileDialog.ShowDialog(this) == DialogResult.OK)
+            {
+                currentGeneratorFileName = saveGenFileDialog.FileName;
+                SaveGenFile();
+            }
+        }
+
+        private void saveToolStripMenuItem_Click(object sender, EventArgs e)
+        {
+            SaveGenFile();
+        }
+
+        private void setNameSpaceToolStripMenuItem_Click(object sender, EventArgs e)
+        {
+            TextDLG.TextBoxText = currentGenerator.Config.CurrentNamespace;
+            if (TextDLG.ShowDialog(this) == DialogResult.OK)
+            {
+                currentGenerator.Config.CurrentNamespace = TextDLG.TextBoxText;
+                ChangesWereMade(true);
+                this.BringToFront();
+            }
+        }
+
+        private void setNameToolStripMenuItem_Click(object sender, EventArgs e)
+        {
+            TextDLG.TextBoxText = currentGenerator.Config.ProjectName;
+            if (TextDLG.ShowDialog(this) == DialogResult.OK)
+            {
+                currentGenerator.Config.ProjectName = TextDLG.TextBoxText;
+                ChangesWereMade(true);
+                this.DataBindings[0].ReadValue();
+                this.BringToFront();
+            }
+        }
+
+        private void ShowClasses()
+        {
+            classesView.Clear();
+            if (currentGenerator != null)
+                classesView.DataBind(currentGenerator.ClassDetails);
+        }
+
+        private void singleFileToolStripMenuItem_Click(object sender, EventArgs e)
+        {
+            if (currentGenerator == null)
+                return;
+            var number = currentGenerator.Config.MaxClassesInFile;
+            currentGenerator.SetMaxClasses(int.MaxValue);
+            chooseGenerationPathDLG.FileName = currentGenerator.GetFileName(currentGenerator.Config.ProjectName);
+            if (chooseGenerationPathDLG.ShowDialog(this) == DialogResult.OK)
+            {
+                currentGenerator.FinishCreating(chooseGenerationPathDLG.FileName);
+                Process.Start(Path.GetDirectoryName(chooseGenerationPathDLG.FileName));
+                WriteToConsole("Generation Succesful");
+            }
+            currentGenerator.SetMaxClasses(number);
+        }
+
+        #endregion Methods
+
+        private void emptyClassListToolStripMenuItem_Click(object sender, EventArgs e)
+        {
+            currentGenerator.ClearClassList();
+            ShowClasses();
+            RebindPropView();
+            RebindAliases();
+            ChangesWereMade(true);
+        }
+
+        private void saveAsToolStripMenuItem_Click(object sender, EventArgs e)
+        {
+            SaveAsGenFile();
+        }
+
+        private void MainWindow_Shown(object sender, EventArgs e)
+        {
+            TextDLG.Owner = this;
+        }
+
+        private void generationConfigurationToolStripMenuItem_Click(object sender, EventArgs e)
+        {
+            ConfigurationPropertyForm form = new ConfigurationPropertyForm(currentGenerator.Config);
+            form.ShowDialog();
+        }
+
+        private void chooseTemplateToolStripMenuItem_Click(object sender, EventArgs e)
+        {
+            var templates = CodeTemplateHandling.GetAllAvailableTemplates().Select(a => (CodeTemplateBase)Activator.CreateInstance(a)).ToList();
+            MultiSelectForm form = new MultiSelectForm(this);
+            form.DataBind(templates, "DisplayName", "Language", "TypeName");
+            if (form.ShowDialog() == DialogResult.OK)
+            {
+                language = (form.SelectedItem as ListViewItem).SubItems[2].Text;
+                if (currentGenerator != null)
+                {
+                    var template = CodeTemplateHandling.GetTemplate(language);
+                    currentGenerator.CodeGenerator = template;
+                }
+            }
+        }
+
+        private ClassDescriptor classesView_GetClass(string className)
+        {
+            return currentGenerator.GetClass(className);
+        }
+
+        private void classesView_SelectedClassChanged(object sender, ClassPropertyViewerSelectionChangedEventArgs e)
+        {
+            propertiesView.DisplayClass(e.SelectedItem);
+        }
+
+        private void propertiesView_ChangesWereMade(object sender, EventArgs e)
+        {
+            ChangesWereMade(true);
+        }
+
+        private void propertiesView_WriteToConsole(string obj)
+        {
+            WriteToConsole(obj);
+        }
+
+        private void propertiesView_SelectClass(object sender, ClassPropertyViewerSelectionChangedEventArgs e)
+        {
+            classesView.SelectedByName(e.NewClass);
+        }
+
+        private void classesView_MouseClick(object sender, MouseEventArgs e)
+        {
+            if (e.Button == MouseButtons.Right)
+            {
+                var enabled = classesView.SelectionCount > 1;
+                mergeToolStripMenuItem.Enabled = enabled;
+                classesCONTEXT.Show(classesView, new Point(e.X, e.Y));
+            }
+        }
+
+        private void increaseDepthToolStripMenuItem_Click_1(object sender, EventArgs e)
+        {
+            foreach (string className in classesView.SelectedClassesNames)
+            {
+                getClass = currentGenerator.GetClass(className);
+                getClass.Depth++;
+            }
+
+            ChangesWereMade(true);
+            ShowClasses();
+        }
+
+        private void decreaseDepthToolStripMenuItem_Click_1(object sender, EventArgs e)
+        {
+            foreach (string className in classesView.SelectedClassesNames)
+            {
+                getClass = currentGenerator.GetClass(className);
+                getClass.Depth--;
+            }
+
+            ChangesWereMade(true);
+            ShowClasses();
+        }
+
+        private void AddPlugin(IOxmGeneratorPlugin plug)
+        {
+
+        }
+
+        IOxmGeneratorPlugin plugin;
+
+        private void fromWsdlToolStripMenuItem_Click(object sender, EventArgs e)
+        {
+            //var importer = PlugInImporter<OxmGeneratorWsdlPlugin>.Import(CodeTemplateHandling.GetTemplate(language), true);
+            //importer.ImportFinished += importFinished;
+            //importer.ImportPlug();
+            //plugin = importer.PlugIn;
+        }
+
+        void importFinished(object sender, EventArgs e)
+        {
+            if (InvokeRequired)
+            {
+                var handle = BeginInvoke(new Action(SaveFile));
+                EndInvoke(handle);
+            }
+            else
+                SaveFile();            
+        }
+
+
+        private void SaveFile()
+        {
+           
+            if (plugin.RequiresExtraSaving)
+            {
+
+                saveFileDialog.Filter = plugin.ExtraFileFilter;
+                if (saveFileDialog.ShowDialog() != DialogResult.OK)
+                {
+                    return;
+                }
+                plugin.WriteExtraFile(saveFileDialog.FileName);
+            }
+            currentGenerator = plugin.OxmGenerator;
+            if (currentGenerator != null)
+                GeneratorAssigned();
+
+        }
+
+        private void fromWsdlUrlToolStripMenuItem_Click(object sender, EventArgs e)
+        {
+            var location = (PluginLocation)((ToolStripMenuItem)sender).Tag;
+            ImportPlugin(location, false);
+        }
+
+        private void ImportPlugin(PluginLocation location, bool fromWeb)
+        {
+            var getPlugin = location.GetPlugIn();
+            var result = PlugInImporter.Create(getPlugin, CodeTemplateHandling.GetTemplate(language), fromWeb);
+            //var importer = PlugInImporter<OxmGeneratorWsdlPlugin>.Import(CodeTemplateHandling.GetTemplate(language), fromWeb);
+            result.ImportFinished += importFinished;
+            result.ImportPlug(openGenFileDialog);
+            plugin = result.PlugIn;
+        }
+
+        private void importFromURL(object sender, EventArgs e)
+        {
+            var location = (PluginLocation)((ToolStripMenuItem)sender).Tag;
+            ImportPlugin(location, true);
+        }
+
+        private void propertiesView_PreviewKeyDown(object sender, PreviewKeyDownEventArgs e)
+        {
+
+        }
+
+        private void MainWindow_ResizeEnd(object sender, EventArgs e)
+        {
+            propertiesView.Left = classesView.Left + classesView.Width + 5;
+            propertiesView.Width = this.ClientRectangle.Width - propertiesView.Left - 5;
+        }        
+    }
+}

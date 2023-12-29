@@ -1,0 +1,325 @@
+using System;
+using System.Collections.Generic;
+using System.ComponentModel;
+using System.Drawing;
+using System.Data;
+using System.Linq;
+using System.Text;
+using System.Windows.Forms;
+using OxmLibrary.CodeGeneration;
+using OxmLibrary;
+
+namespace OxmLibrary.GUI
+{
+    public partial class ClassPropertyViewer : UserControl, INotifyPropertyChanged
+    {
+        private ClassDescriptor currentClass;
+        private MultiSelectForm selectDLG; 
+
+
+        [Category("Interaction")]
+        public event GenericEventHandler<string[]> GetDataTypes;
+
+        [Category("Interaction")]
+        [Description("Jump To Class")]
+        public event EventHandler<ClassPropertyViewerSelectionChangedEventArgs> SelectClass;
+        public void OnSelectClass(string newClass)
+        {
+            if (SelectClass != null)
+                SelectClass(this, new ClassPropertyViewerSelectionChangedEventArgs(newClass));
+        }
+
+        [Category("Interaction")]
+        [Description("Change all certain datatypes to another data type")]
+        public event GenericEventHandler<string, string> ChangeAllDataTypes;
+        public void OnChangeAllDataTypes(string fromType, string toType)
+        {
+            if (ChangeAllDataTypes != null)
+                ChangeAllDataTypes(this, new GenericEventArgs<string, string>(fromType, toType));
+        }
+
+        [Category("Interaction")]
+        [Description("Indicate main window that changes were made to the list")]
+        public event EventHandler ChangesWereMade;
+        public void OnChangesWereMade()
+        {
+            if (ChangesWereMade != null)
+                ChangesWereMade(this, EventArgs.Empty);
+        }
+
+        [Category("Interaction")]
+        [DisplayName("Write To Console Delegate")]
+        public event Action<string> WriteToConsoleDelegate;
+        public void OnWriteToConsole(string text)
+        {
+            if (WriteToConsoleDelegate != null)
+                WriteToConsoleDelegate(text);
+        }
+
+
+        public ClassDescriptor DisplayClass(ClassDescriptor ToShow)
+        {
+            currentClass = ToShow;
+            showClass();
+            return ToShow;
+        }
+
+        private OxmLibrary.CodeGeneration.PropertyDescriptor currentProperty;
+
+        public OxmLibrary.CodeGeneration.PropertyDescriptor CurrentProperty
+        {
+            get
+            {
+                if (currentProperty == null)
+                    currentProperty = new OxmLibrary.CodeGeneration.PropertyDescriptor();
+                return currentProperty;
+            }
+        }
+
+        public ClassDescriptor CurrentClass
+        {
+            get
+            {
+                return currentClass;
+            }
+            set
+            {
+                if (value != currentClass)
+                {
+                    showClass();
+                    currentClass = value;
+                    RaisePropertyChanged("CurrentClass");
+                }
+            }
+        }
+
+        private void showClass()
+        {
+            propertiesView.DataSource = null;
+            propertiesView.DataSource = currentClass.Values.ToList();
+            //propertiesView.Items.AddRange(
+              //     currentClass
+                //       .Select(oneprop => new ListViewItem(
+                  //         new string[] { oneprop.Key, oneprop.Value.PType, oneprop.Value.PMaxCount.ToString(), oneprop.Value.OverRideName }))
+                    ///   .ToArray());
+        }
+
+        public ClassPropertyViewer()
+        {
+            InitializeComponent();            
+            selectDLG = new MultiSelectForm(null);
+        }
+
+        public string SelectedPropertyName
+        {
+            get
+            {
+                return propertiesView.SelectedRows.Count > 0 ? propertiesView.SelectedRows[0].Cells[0].Value.ToString() : string.Empty;
+            }
+        }
+
+        public List<string> SelectedPropertiesNames
+        {
+            get
+            {
+                return propertiesView.SelectedRows.OfType<DataGridViewRow>().Select(a => a.Cells[0].Value.ToString()).ToList();
+                //[0].SubItems[0].Text
+            }
+        }
+
+        public List<OxmLibrary.CodeGeneration.PropertyDescriptor> SelectedProperties
+        {
+            get
+            {
+                return SelectedPropertiesNames.Select(a => currentClass[a]).ToList();
+            }
+        }
+
+        public int SelectionCount
+        {
+            get
+            {
+                return propertiesView.SelectedRows.Count;
+            }
+        }
+
+        public void Clear()
+        {
+            propertiesView.DataSource = null;
+            propertiesView.Rows.Clear();
+        }
+
+        public event PropertyChangedEventHandler PropertyChanged;
+
+        public void RaisePropertyChanged(string propertyName)
+        {
+            if (PropertyChanged != null)
+                PropertyChanged(this, new PropertyChangedEventArgs(propertyName));
+        }
+
+        private void propertiesView_MouseClick(object sender, MouseEventArgs e)
+        {
+            if (SelectedPropertyName == string.Empty)
+                return;
+            if (e.Button == MouseButtons.Right && currentClass.ContainsKey(SelectedPropertyName))
+            {
+                var theProp = CurrentClass[SelectedPropertyName];
+                editPropMenu.Items[2].Enabled = theProp.Complex;
+                editPropMenu.Items[4].Enabled = theProp.PType.EndsWith("enu");
+                editPropMenu.Show(propertiesView, new Point(e.X, e.Y));
+            }
+        }
+
+        private void deleteToolStripMenuItem_Click(object sender, EventArgs e)
+        {
+            DeleteProperties();
+        }
+
+        private void DeleteProperties()
+        {
+            if (SelectionCount == 0)
+            {
+                return;
+            }
+
+            GetScrollPosition();
+            var props = SelectedPropertiesNames;
+            foreach (var item in props)
+            {
+                if (CurrentClass.ContainsKey(item))
+                {
+                    CurrentClass.DeleteProperty(item);
+                    WriteToConsole(string.Format("Remove property {0}", item));
+                }
+            }
+            OnChangesWereMade();
+            showClass();
+            RestoreScrollPosition();
+        }
+
+        private int scrollYPosition;
+
+        private void RestoreScrollPosition()
+        {
+            propertiesView.FirstDisplayedScrollingRowIndex = scrollYPosition;
+        }
+
+        private void GetScrollPosition()
+        {
+            scrollYPosition = propertiesView.FirstDisplayedScrollingRowIndex;
+        }
+
+        private void WriteToConsole(string text, params object[] items)
+        {
+            OnWriteToConsole(string.Format(text, items));
+        }
+
+        private void makeArrayToolStripMenuItem_Click(object sender, EventArgs e)
+        {
+            if (SelectionCount == 0)
+            {
+                return;
+            }
+
+            var props = SelectedPropertiesNames;
+
+            foreach (var item in currentClass)
+            {
+                if (props.Contains(item.Key))
+                {
+                    item.Value.PMaxCount = 10;
+                    WriteToConsole("Changed property {0} into array", item.Key);
+                }
+            }
+            OnChangesWereMade();
+            showClass();
+        }
+
+        private void jumpToClassToolStripMenuItem_Click(object sender, EventArgs e)
+        {
+            var theProp = currentClass[SelectedPropertiesNames[0]];
+            var name = theProp.PType.Substring(0, theProp.PType.Length - 3);
+            OnSelectClass(name);
+            //// int index = theItem.Index;
+            //// classesView.SelectedIndices.Add(index);
+        }
+
+        private void chooseDataTypeToolStripMenuItem_Click(object sender, EventArgs e)
+        {
+            var listItems = new List<string>(MainWindow.BasicDataTypes);
+            listItems.AddRange(OnGetDataTypes());
+            //listItems.AddRange();
+            selectDLG.Items = listItems.ToArray();
+            if (selectDLG.ShowDialog(this) == DialogResult.OK)
+            {
+                var theProp = SelectedProperties[0];
+                theProp.PType = selectDLG.SelectedText;
+                showClass();
+                OnChangesWereMade();
+                this.BringToFront();
+            }
+        }
+
+        private IEnumerable<string> OnGetDataTypes()
+        {
+            if (GetDataTypes != null)
+            {
+                var args = new GenericEventArgs<string[]>(null);
+                GetDataTypes(this, args);
+                return args.Item;
+            }
+            return new string[0];
+        }
+
+        private void inspectEnumerationToolStripMenuItem_Click(object sender, EventArgs e)
+        {
+            var theProp = currentClass[SelectedPropertyName];
+            var name = theProp.PType.Substring(0, theProp.PType.Length - 3);
+            OnShowEnumeration(name);
+        }
+
+        [Category("Interaction")]
+        public event GenericEventHandler<string> ShowEnumeration;
+        private void OnShowEnumeration(string name)
+        {
+            if (ShowEnumeration != null)
+                ShowEnumeration(this, new GenericEventArgs<string>(name));
+        }
+
+        private void changeAllDataTypesToolStripMenuItem_Click(object sender, EventArgs e)
+        {
+            var listItems = new List<string>(MainWindow.BasicDataTypes);
+            listItems.AddRange(OnGetDataTypes());
+            selectDLG.Items = listItems.ToArray();
+            if (selectDLG.ShowDialog(this) == DialogResult.OK)
+            {
+                var theProp = currentClass[SelectedPropertyName];
+                //theProp.PType = selectDLG.SelectedText;
+                var changeFrom = theProp.PType;
+                OnChangeAllDataTypes(changeFrom, selectDLG.SelectedText);
+                showClass();
+            }            
+        }
+
+        private void propertiesView_SelectionChanged(object sender, EventArgs e)
+        {
+            if (propertiesView.SelectedRows.Count > 0)
+            {
+                currentProperty = currentClass[propertiesView.SelectedRows[0].Cells[0].Value.ToString()];
+            }
+            else
+                currentProperty = new OxmLibrary.CodeGeneration.PropertyDescriptor();
+        }
+
+        private void propertiesView_PreviewKeyDown(object sender, PreviewKeyDownEventArgs e)
+        {
+            switch (e.KeyCode)
+            {
+                case Keys.Delete:
+                    DeleteProperties();
+                    break;
+            }
+            
+        }        
+    }
+}

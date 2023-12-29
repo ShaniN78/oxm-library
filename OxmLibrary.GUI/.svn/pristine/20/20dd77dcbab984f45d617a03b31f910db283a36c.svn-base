@@ -1,0 +1,209 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<Project ToolsVersion="3.5" DefaultTargets="Build" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <PropertyGroup>
+    <Configuration Condition=" '$(Configuration)' == '' ">Debug</Configuration>
+    <Platform Condition=" '$(Platform)' == '' ">AnyCPU</Platform>
+    <SchemaVersion>2.0</SchemaVersion>
+    <ProjectGuid>{8E398BD5-BC77-4CDF-BCA3-00EEB167D5E7}</ProjectGuid>
+    <OutputType>WinExe</OutputType>
+    <AppDesignerFolder>Properties</AppDesignerFolder>
+    <RootNamespace>OxmStylizer</RootNamespace>
+    <AssemblyName>OxmStylizer</AssemblyName>
+    <TargetFrameworkVersion>v3.5</TargetFrameworkVersion>
+    <FileAlignment>512</FileAlignment>
+    <SccProjectName>Svn</SccProjectName>
+    <SccLocalPath>Svn</SccLocalPath>
+    <SccAuxPath>Svn</SccAuxPath>
+    <SccProvider>SubversionScc</SccProvider>
+  </PropertyGroup>
+  <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Debug|AnyCPU' ">
+    <DebugSymbols>true</DebugSymbols>
+    <DebugType>full</DebugType>
+    <Optimize>false</Optimize>
+    <OutputPath>bin\Debug\</OutputPath>
+    <DefineConstants>DEBUG;TRACE</DefineConstants>
+    <ErrorReport>prompt</ErrorReport>
+    <WarningLevel>4</WarningLevel>
+    <UseVSHostingProcess>true</UseVSHostingProcess>
+  </PropertyGroup>
+  <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Release|AnyCPU' ">
+    <DebugType>pdbonly</DebugType>
+    <Optimize>true</Optimize>
+    <OutputPath>bin\Release\</OutputPath>
+    <DefineConstants>TRACE</DefineConstants>
+    <ErrorReport>prompt</ErrorReport>
+    <WarningLevel>4</WarningLevel>
+  </PropertyGroup>
+  <ItemGroup>
+    <Reference Include="Microsoft.VisualBasic" />
+    <Reference Include="System" />
+    <Reference Include="System.configuration" />
+    <Reference Include="System.Core">
+      <RequiredTargetFramework>3.5</RequiredTargetFramework>
+    </Reference>
+    <Reference Include="System.ServiceModel">
+      <RequiredTargetFramework>3.0</RequiredTargetFramework>
+    </Reference>
+    <Reference Include="System.Web.Services" />
+    <Reference Include="System.Xml.Linq">
+      <RequiredTargetFramework>3.5</RequiredTargetFramework>
+    </Reference>
+    <Reference Include="System.Data.DataSetExtensions">
+      <RequiredTargetFramework>3.5</RequiredTargetFramework>
+    </Reference>
+    <Reference Include="System.Data" />
+    <Reference Include="System.Deployment" />
+    <Reference Include="System.Drawing" />
+    <Reference Include="System.Windows.Forms" />
+    <Reference Include="System.Xml" />
+  </ItemGroup>
+  <ItemGroup>
+    <Compile Include="AdditionalPropertiesUIEditor.cs" />
+    <Compile Include="AdditionalsEditor.cs">
+      <SubType>Form</SubType>
+    </Compile>
+    <Compile Include="AdditionalsEditor.Designer.cs">
+      <DependentUpon>AdditionalsEditor.cs</DependentUpon>
+    </Compile>
+    <Compile Include="ClassListViewer.cs">
+      <SubType>UserControl</SubType>
+    </Compile>
+    <Compile Include="ClassListViewer.Designer.cs">
+      <DependentUpon>ClassListViewer.cs</DependentUpon>
+    </Compile>
+    <Compile Include="ClassPropertyViewer.cs">
+      <SubType>UserControl</SubType>
+    </Compile>
+    <Compile Include="ClassPropertyViewer.Designer.cs">
+      <DependentUpon>ClassPropertyViewer.cs</DependentUpon>
+    </Compile>
+    <Compile Include="ClassPropertyViewerSelectionChangedEventArgs.cs" />
+    <Compile Include="CodeTemplateHandling.cs" />
+    <Compile Include="ConfigurationPropertyForm.cs">
+      <SubType>Form</SubType>
+    </Compile>
+    <Compile Include="ConfigurationPropertyForm.Designer.cs">
+      <DependentUpon>ConfigurationPropertyForm.cs</DependentUpon>
+    </Compile>
+    <Compile Include="GenericEventHandler.cs" />
+    <Compile Include="ListViewColumnSorter.cs" />
+    <Compile Include="MainWindow.cs">
+      <SubType>Form</SubType>
+    </Compile>
+    <Compile Include="MainWindow.Designer.cs">
+      <DependentUpon>MainWindow.cs</DependentUpon>
+    </Compile>
+    <Compile Include="MultiSelectItemEventArgs.cs" />
+    <Compile Include="OxmXSDImporterPlugin.cs" />
+    <Compile Include="PlugInImporter.cs" />
+    <Compile Include="PluginLocation.cs" />
+    <Compile Include="PluginsHandler.cs" />
+    <Compile Include="Program.cs" />
+    <Compile Include="Properties\AssemblyInfo.cs" />
+    <EmbeddedResource Include="AdditionalsEditor.resx">
+      <DependentUpon>AdditionalsEditor.cs</DependentUpon>
+    </EmbeddedResource>
+    <EmbeddedResource Include="ClassListViewer.resx">
+      <DependentUpon>ClassListViewer.cs</DependentUpon>
+    </EmbeddedResource>
+    <EmbeddedResource Include="ClassPropertyViewer.resx">
+      <DependentUpon>ClassPropertyViewer.cs</DependentUpon>
+    </EmbeddedResource>
+    <EmbeddedResource Include="ConfigurationPropertyForm.resx">
+      <DependentUpon>ConfigurationPropertyForm.cs</DependentUpon>
+    </EmbeddedResource>
+    <EmbeddedResource Include="MainWindow.resx">
+      <DependentUpon>MainWindow.cs</DependentUpon>
+    </EmbeddedResource>
+    <EmbeddedResource Include="Properties\Resources.resx">
+      <Generator>ResXFileCodeGenerator</Generator>
+      <LastGenOutput>Resources.Designer.cs</LastGenOutput>
+      <SubType>Designer</SubType>
+    </EmbeddedResource>
+    <EmbeddedResource Include="Resources.he-IL.resx">
+      <Generator>ResXFileCodeGenerator</Generator>
+      <LastGenOutput>Resources.he-IL.Designer.cs</LastGenOutput>
+    </EmbeddedResource>
+    <EmbeddedResource Include="MultiSelectForm.resx">
+      <DependentUpon>MultiSelectForm.cs</DependentUpon>
+    </EmbeddedResource>
+    <EmbeddedResource Include="TextBoxDialog.resx">
+      <DependentUpon>TextBoxDialog.cs</DependentUpon>
+    </EmbeddedResource>
+    <Compile Include="Properties\Resources.Designer.cs">
+      <AutoGen>True</AutoGen>
+      <DependentUpon>Resources.resx</DependentUpon>
+      <DesignTime>True</DesignTime>
+    </Compile>
+    <None Include="Properties\Settings.settings">
+      <Generator>PublicSettingsSingleFileGenerator</Generator>
+      <LastGenOutput>Settings.Designer.cs</LastGenOutput>
+    </None>
+    <Compile Include="Properties\Settings.Designer.cs">
+      <AutoGen>True</AutoGen>
+      <DependentUpon>Settings.settings</DependentUpon>
+      <DesignTimeSharedInput>True</DesignTimeSharedInput>
+    </Compile>
+    <Compile Include="Resources.he-IL.Designer.cs">
+      <AutoGen>True</AutoGen>
+      <DesignTime>True</DesignTime>
+      <DependentUpon>Resources.he-IL.resx</DependentUpon>
+    </Compile>
+    <Compile Include="MultiSelectForm.cs">
+      <SubType>Form</SubType>
+    </Compile>
+    <Compile Include="MultiSelectForm.Designer.cs">
+      <DependentUpon>MultiSelectForm.cs</DependentUpon>
+    </Compile>
+    <Compile Include="Settings.cs" />
+    <Compile Include="StringRedirect.cs" />
+    <Compile Include="TextBoxDialog.cs">
+      <SubType>Form</SubType>
+    </Compile>
+    <Compile Include="TextBoxDialog.Designer.cs">
+      <DependentUpon>TextBoxDialog.cs</DependentUpon>
+    </Compile>
+  </ItemGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\OxmCodeGeneration\OxmCodeGeneration.csproj">
+      <Project>{CB974DD7-8213-4492-823C-A1D0BCE2B21E}</Project>
+      <Name>OxmCodeGeneration</Name>
+    </ProjectReference>
+    <ProjectReference Include="..\OxmLibrary\GlassButton\GlassButton.csproj">
+      <Project>{73A80AFA-C186-477A-A564-6936605AB6F0}</Project>
+      <Name>GlassButton</Name>
+    </ProjectReference>
+    <ProjectReference Include="..\OxmLibrary\OxmLibrary.csproj">
+      <Project>{E39B0852-2302-4491-809D-F86C8F8A9F12}</Project>
+      <Name>OxmLibrary</Name>
+    </ProjectReference>
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="Resources\biggieButton.png" />
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="Resources\biggieButton1.png" />
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="Resources\biggieButton2.png" />
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="Resources\biggieButton21.png" />
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="Resources\AddProp.png" />
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="app.config" />
+    <None Include="Properties\DataSources\OxmLibrary.PropertyDescriptor.datasource" />
+    <None Include="Resources\House.png" />
+  </ItemGroup>
+  <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
+  <!-- To modify your build process, add your task inside one of the targets below and uncomment it. 
+       Other similar extension points exist, see Microsoft.Common.targets.
+  <Target Name="BeforeBuild">
+  </Target>
+  <Target Name="AfterBuild">
+  </Target>
+  -->
+</Project>

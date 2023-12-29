@@ -1,0 +1,1104 @@
+﻿#region Header
+
+// --------------------------------------------------------------------------------------------------------------------
+// <copyright company="Mosh Productions." file="OxmGenerator3.cs">
+//   All rights reserved.
+// </copyright>
+// <summary>
+//   Version 0.5 of the oxm generator
+// </summary>
+// --------------------------------------------------------------------------------------------------------------------
+
+#endregion Header
+
+namespace OxmLibrary.CodeGeneration
+{
+    using System;
+    using System.Collections.Generic;
+    using System.Diagnostics.CodeAnalysis;
+    using System.IO;
+    using System.Linq;
+    using System.Text;
+    using System.Xml;
+    using System.Xml.Linq;
+    using System.Xml.Schema;
+    using System.Xml.Serialization;
+    using OxmLibrary.CodeGeneration;
+using System.CodeDom.Compiler;
+
+    /// <summary>
+    /// Version 0.3 of the generator
+    /// </summary>
+    [Serializable]
+    public class OxmGenerator3 : IXmlSerializable, IOxmGenerator
+    {
+        #region Fields
+
+        /// <summary>
+        /// The xml root root.
+        /// </summary>
+        [XmlIgnore]
+        private readonly XElement theRoot;
+
+        private List<string> alreadyIncluded;
+
+        [XmlIgnore]
+        public IOxmGeneratorPlugin PlugIn { get; private set; }
+
+        public void AssignPlugin(IOxmGeneratorPlugin plugin)
+        {
+            this.PlugIn = plugin;
+            this.PlugIn.OxmGenerator = this;
+            this.PlugIn.AddFile += new EventHandler<OxmGeneratorAddFileEventArgs>(PlugIn_AddFile);
+            this.PlugIn.AddSchema += new EventHandler<OxmGeneratorAddSchemaEventArgs>(PlugIn_AddSchema);
+            this.PlugIn.AddClass += new EventHandler<OxmGeneratorAddClassEventArgs>(PlugIn_AddClass);
+        }
+
+        void PlugIn_AddClass(object sender, OxmGeneratorAddClassEventArgs e)
+        {
+            if (!classes.ContainsKey(e.Descriptor.ClassName))
+                classes.Add(e.Descriptor.ClassName, e.Descriptor);
+        }
+
+        void PlugIn_AddSchema(object sender, OxmGeneratorAddSchemaEventArgs e)
+        {
+            this.AddSchema(e.Schema, e.WsdlPath);
+        }
+
+        void PlugIn_AddFile(object sender, OxmGeneratorAddFileEventArgs e)
+        {
+            this.AddXsd(e.FileName);
+        }
+
+
+        /// <summary>
+        /// The classes.
+        /// </summary>
+        [XmlIgnore]
+        internal Dictionary<string, ClassDescriptor> classes;
+
+        /// <summary>
+        /// The enumerations.
+        /// </summary>
+        [XmlIgnore]
+        internal Dictionary<string, EnumerationDescriptor> enumerations;
+
+        /// <summary>
+        /// The _the xml text.
+        /// </summary>
+        [XmlAttribute]
+        private string theXmlText = string.Empty;
+
+        private CodeTemplateBase currentCodeGenerator
+        {
+            get
+            {
+                return Config.currentCodeGenerator;
+            }
+        }
+        #endregion Fields
+
+        #region Constructors
+
+        private OxmGenerator3()
+        {
+
+        }
+
+        /// <summary>
+        /// Prevents a default instance of the <see cref="OxmGenerator3"/> class from being created.
+        /// </summary>
+        private OxmGenerator3(CodeTemplateBase generator)
+        {
+            alreadyIncluded = new List<string>();
+            classes = new Dictionary<string, ClassDescriptor>();
+            enumerations = new Dictionary<string, EnumerationDescriptor>();
+            Config = GenerationConfiguration.DefaultConfiguration;
+            Config.currentCodeGenerator = generator;
+        }
+
+        /// <summary>
+        /// Initializes a new instance of the <see cref="OxmGenerator3"/> class, with an xml string.
+        /// </summary>
+        /// <param name="xml">
+        /// The xml to parse, should be valid xml, with only one root.
+        /// </param>
+        private OxmGenerator3(string xml, CodeTemplateBase generator)
+            : this(generator)
+        {
+            theXmlText = xml;
+            theRoot = XElement.Parse(xml);
+        }
+
+        /// <summary>
+        /// Fix data types to fit the .NET Clr types
+        /// Kind of hackish and supports only C# data types.
+        /// </summary>
+        /// <param name="p"></param>
+        /// <returns></returns>
+        private string ConverPropertyType(string p)
+        {
+            return currentCodeGenerator.NormalizeDataType(p);
+        }
+
+        #endregion Constructors
+
+        #region Properties
+
+        public GenerationConfiguration Config
+        {
+            get;
+            private set;
+        }
+        /// <summary>
+        /// Gets ClassDetails.
+        /// </summary>
+        public List<ClassDescriptor> ClassDetails
+        {
+            get { return classes.Select(a => a.Value).ToList(); }
+        }
+
+        /// <summary>
+        /// Gets ClassNames.
+        /// </summary>
+        public string[] ClassNames
+        {
+            get { return classes.Keys.ToArray(); }
+        }
+
+        /// <summary>
+        /// Gets DataTypes.
+        /// </summary>
+        public string[] DataTypes
+        {
+            get { return classes.Select(a => a.Value.OxmName).ToArray(); }
+        }
+
+        #endregion Properties
+
+        #region Methods
+
+        /// <summary>
+        /// The fresh.
+        /// </summary>
+        /// <returns>
+        /// A fresh oxm generator with no classes and enumerations.
+        /// </returns>
+        public static OxmGenerator3 Fresh(CodeTemplateBase templateBase)
+        {
+            if (TextHelper.ConsoleWriter != null)
+                TextHelper.ConsoleWriter.WriteLine("Created Fresh Generator...");
+            var gen = new OxmGenerator3(templateBase);
+            return gen;
+        }
+
+        /// <summary>
+        /// The Oxm generator produced from the XML file.
+        /// </summary>
+        /// <param name="path">
+        /// The path to the file.
+        /// </param>
+        /// <returns>
+        /// An oxm generator from an xml file. 
+        /// </returns>
+        /// <exception cref="FileNotFoundException">
+        /// Throws this exception when the file does not exist.
+        /// </exception>
+        public static OxmGenerator3 FromFile(string path, CodeTemplateBase templateBase)
+        {
+            if (!File.Exists(path))
+            {
+                throw new FileNotFoundException("File not found! " + path);
+            }
+
+            return new OxmGenerator3(File.ReadAllText(path), templateBase);
+        }
+
+        /// <summary>
+        /// Load a generator file and create an instance of the Generator class.
+        /// </summary>
+        /// <param name="path">
+        /// The path to the generator file (usually .GEN file)
+        /// </param>
+        /// <returns>
+        /// An instance of the generator class.
+        /// </returns>
+        public static OxmGenerator3 FromGenFile(string path, CodeTemplateBase templateBase)
+        {
+            var serialize = new XmlSerializer(typeof(OxmGenerator3));
+            XmlReader reader = XmlReader.Create(path);
+            var returnValue = serialize.Deserialize(reader) as OxmGenerator3;
+            returnValue.ClassDetails.ForEach(cla =>
+            {
+                cla.Generator = returnValue;
+                cla.Properties.ForEach(prop => prop.SetGenerator(returnValue));
+            });
+            returnValue.Config.currentCodeGenerator = templateBase;
+            reader.Close();
+            return returnValue;
+        }
+
+        /// <summary>
+        /// Generates oxm generator class instance from an xml string.
+        /// </summary>
+        /// <param name="xml">
+        /// The xml to parse.
+        /// </param>
+        /// <returns>
+        /// Generator produced.
+        /// </returns>
+        public static OxmGenerator3 FromXml(string xml, CodeTemplateBase templatebase)
+        {
+            return new OxmGenerator3(xml, templatebase);
+        }
+
+        /// <summary>
+        /// Generate an oxm generator class instance from an xml schema diagram file.
+        /// </summary>
+        /// <param name="xsd">
+        /// The XML schema diagram file path.
+        /// </param>
+        /// <returns>
+        /// An instance of the generator class.
+        /// </returns>
+        public static OxmGenerator3 FromXsd(string xsd, CodeTemplateBase templateBase)
+        {
+            var fresh = Fresh(templateBase);
+            fresh.AddXsd(xsd);
+            return fresh;
+        }
+
+        public bool AddClasses(IEnumerable<ClassDescriptor> newClasses)
+        {
+            foreach (var newClass in newClasses)
+            {
+                if (classes.ContainsKey(newClass.ClassName))
+                {
+                    classes[newClass.ClassName].Merge(newClass);
+                }
+                else
+                {
+                    classes.Add(newClass.ClassName, newClass);
+                }
+            }
+
+            return true;
+        }
+
+        /// <summary>
+        /// The add class.
+        /// </summary>
+        /// <param name="className">
+        /// The class name.
+        /// </param>
+        /// <returns>
+        /// The add class.
+        /// </returns>
+        public bool AddClass(string className)
+        {
+            if (classes.ContainsKey(className))
+                return false;
+            var newClass = new ClassDescriptor(this);
+            newClass.OxmName = className + "oxm";
+            newClass.Depth = 1;
+            newClass.HasInnerTextProperty = false;
+            classes.Add(className, newClass);
+            return true;
+        }
+
+        /// <summary>
+        /// The add file.
+        /// </summary>
+        /// <param name="fileN">
+        /// The file n.
+        /// </param>
+        /// <returns>
+        /// The add file.
+        /// </returns>
+        public string AddFile(string fileN)
+        {
+            XmlInferingHelpers xmlInfer = new XmlInferingHelpers(this);
+            theXmlText = File.ReadAllText(fileN);
+            XElement temp = XElement.Parse(theXmlText);
+            var newClasses = xmlInfer.TurnElementIntoClass(temp, 1);
+            AddClasses(newClasses);
+            return "Successful parsing...";
+        }
+
+        /// <summary>
+        /// The add property.
+        /// </summary>
+        /// <param name="writer">
+        /// The writer.
+        /// </param>
+        /// <param name="ClassName">
+        /// The class name.
+        /// </param>
+        /// <param name="PName">
+        /// The p name.
+        /// </param>
+        /// <param name="AsType">
+        /// The as type.
+        /// </param>
+        public void AddProperty(TextWriter writer, string ClassName, string PName, string AsType)
+        {
+            if (classes.Keys.Contains(ClassName))
+            {
+                ClassDescriptor cls = classes[ClassName];
+                if (!cls.Keys.Contains(PName))
+                {
+                    var prop = new PropertyDescriptor(this);
+                    prop.PName = PName;
+                    prop.PMaxCount = 1;
+                    prop.PType = AsType;
+                    if (AsType.ToLower() != "string" && AsType.ToLower() != "int" && AsType.ToLower() != "bool")
+                        prop.Complex = true;
+                    else
+                        prop.Complex = false;
+                    prop.PMaxCount = 1;
+                    cls.Add(prop.PName, prop);
+                    writer.WriteLine("Property {0} added to {1}", PName, ClassName);
+                }
+                else
+                    writer.WriteLine("Property {0} already exists in {1}", PName, ClassName);
+            }
+            else
+                writer.WriteLine("No such class - {0}", ClassName);
+        }
+
+        /// <summary>
+        /// The add xml method - parse an additional xml to the generator.
+        /// </summary>
+        /// <param name="xml">
+        /// The xml to parse.
+        /// </param>
+        /// <returns>
+        /// The result of the operation in text.
+        /// </returns>
+        public string AddText(string xml)
+        {
+            try
+            {
+                XmlInferingHelpers xmlInfer = new XmlInferingHelpers(this);
+                XElement temp = XElement.Parse(xml);
+                var newClasses = xmlInfer.TurnElementIntoClass(temp, 1);
+
+                return "Successful parsing...";
+            }
+            catch
+            {
+                return "Invalid Xml";
+            }
+        }
+
+        public void AddSchema(XmlSchema schema, string wsdlPath)
+        {
+            StringWriter writer = new StringWriter();
+            schema.Write(writer);
+            XDocument doc = XDocument.Parse(writer.GetStringBuilder().ToString());
+            AddXDocument(wsdlPath, schema.SourceUri, doc);
+        }
+
+        /// <summary>
+        /// The add xsd.
+        /// </summary>
+        /// <param name="fileN">
+        /// The file n.
+        /// </param>
+        /// <returns>
+        /// The add xsd.
+        /// </returns>
+        public bool AddXsd(string fileN)
+        {
+            string _xsdText = File.ReadAllText(fileN);
+            var schemaPath = Path.GetDirectoryName(fileN);
+            XDocument temp = XDocument.Parse(_xsdText);
+            return AddXDocument(schemaPath, fileN, temp);
+        }
+
+        private bool AddXDocument(string schemaPath, string xsdPath, XDocument xdocument)
+        {
+            if (alreadyIncluded == null)
+                alreadyIncluded = new List<string>();
+            if (alreadyIncluded.Contains(xsdPath) || alreadyIncluded.Contains(ElementTargetNameSpace(xdocument)))
+                return false;
+
+            XElement schemaRoot = xdocument.Elements().First();
+            if (schemaRoot.Name.LocalName != "schema")
+                return false;
+            XSchemaCollection allSchemas = new XSchemaCollection();
+            allSchemas.Add(xdocument);
+            var theSchemaNode = schemaRoot.Elements().First();
+            var imports = schemaRoot.Descendants().Where(a => a.Name.LocalName == "import" && a.Attribute("schemaLocation") != null).ToList();
+
+            
+
+            imports.ForEach(item =>
+            {
+                var name = item.Attribute("namespace").Value;
+                var prefixAttribute = schemaRoot.Attributes().FirstOrDefault(a => a.Value == name);
+                var prefix = prefixAttribute != null ? prefixAttribute.Name.LocalName : string.Empty;
+                allSchemas.AddWithNamespace(prefix,
+                    ParseIncludes(2, item.Attribute("schemaLocation").Value, schemaPath)
+                                           );
+            });
+
+
+            var includes = schemaRoot.Descendants().Where(a => a.Name.LocalName == "include").ToList();
+
+            foreach (var item in includes)
+            {
+                allSchemas.Add(
+                        ParseIncludes(2, item.Attribute("schemaLocation").Value, schemaPath)
+                              );
+            }
+
+            while (theSchemaNode != null && theSchemaNode.Name.LocalName != "element" && theSchemaNode.Name.LocalName != "complexType") theSchemaNode = theSchemaNode.ElementsAfterSelf().FirstOrDefault();
+
+            if (theSchemaNode == null)
+            {
+                return (includes.Count > 0 || imports.Count > 0);
+            }
+            if (Configuration.PerformIndexation)
+                allSchemas.PerformIndexation();
+
+            XSDHelpers.RecursiveParse(this, theSchemaNode, classes, enumerations, 1, allSchemas);
+            do
+            {
+                if (theSchemaNode is XElement)
+                {
+                    XSDHelpers.RecursiveParse(this, theSchemaNode as XElement, classes, enumerations, 1, allSchemas);
+                }
+            }
+            while ((theSchemaNode = theSchemaNode.NextNode as XElement) != null);
+
+            return true;
+        }
+
+        private string ElementTargetNameSpace(XDocument xdocument)
+        {
+            var elements = xdocument.Elements().ToList();
+            if (elements.Count == 0)
+                return string.Empty;
+            var attr = elements[0].Attribute("targetNamespace");
+            return attr != null ? attr.Value : string.Empty;
+        }
+
+        /// <summary>
+        /// The check similar.
+        /// </summary>
+        public void CheckSimilar()
+        {
+            var obsoleteKeys = new List<string>();
+            var allClasses = classes.OrderByDescending(a => a.Value.Depth).ToArray();
+            for (int i = 0; i < allClasses.Length; i++)
+            {
+                var check = allClasses[i].Value;
+                if (check.Depth == 1) continue;
+                for (int j = i + 1; j < allClasses.Length; j++)
+                {
+                    var checkAgainst = allClasses[j].Value;
+                    if (obsoleteKeys.Contains(checkAgainst.ClassName))
+                    {
+                        continue;
+                    }
+
+                    if (checkAgainst.Equals(check) && check.InheritsFrom == checkAgainst.InheritsFrom)
+                    {
+                        obsoleteKeys.Add(check.ClassName);
+                        checkAgainst.Merge(check);
+                        ChangeAllReferences(check, checkAgainst);
+                        break;
+                    }
+                }
+
+            }
+
+            obsoleteKeys.ForEach(removeIt => classes.Remove(removeIt));
+        }
+
+        public void ClearClassList()
+        {
+            classes.Clear();
+            alreadyIncluded.Clear();
+        }
+
+        public void ClearEnumerations()
+        {
+            enumerations.Clear();
+            alreadyIncluded.Clear();
+        }
+
+        /// <summary>
+        /// The delete class.
+        /// </summary>
+        /// <param name="className">
+        /// The class name.
+        /// </param>
+        public void DeleteClass(string className)
+        {
+            if (!classes.ContainsKey(className))
+                return;
+            classes.Remove(className);
+            RemoveReferences(className);
+        }
+
+        /// <summary>
+        /// The dump status.
+        /// </summary>
+        /// <param name="textWriter">
+        /// The text writer.
+        /// </param>
+        /// <param name="verbose">
+        /// The verbose.
+        /// </param>
+        public void DumpStatus(TextWriter textWriter, bool verbose)
+        {
+            textWriter.WriteLine("\nStatus:");
+            textWriter.WriteLine("{0} - Classes", classes.Count);
+            foreach (ClassDescriptor cls in classes.Values)
+            {
+                textWriter.WriteLine("class {0} - {1} properties", cls.ClassName, cls.Values.Count);
+                if (verbose)
+                {
+                    foreach (PropertyDescriptor ap in cls.Values)
+                    {
+                        textWriter.WriteLine("   Property {0} : {1} - {2} {3}", ap.PName, ap.PType, ap.PMaxCount, ap.OverRideName != ap.PName ? ap.OverRideName : string.Empty);
+                    }
+                }
+            }
+        }
+
+        /// <summary>
+        /// The dump status.
+        /// </summary>
+        /// <param name="textWriter">
+        /// The text writer.
+        /// </param>
+        /// <param name="className">
+        /// The class Name.
+        /// </param>
+        public void DumpStatus(TextWriter textWriter, string className)
+        {
+            if (classes.Keys.Contains(className))
+            {
+                ClassDescriptor desc = classes[className];
+                textWriter.WriteLine("Class {0} - Status", desc.ClassName);
+                foreach (PropertyDescriptor ap in desc.Values)
+                {
+                    textWriter.WriteLine("   Property {0} : {1} - {2} {3}", ap.PName, ap.PType, ap.PMaxCount, ap.OverRideName != ap.PName ? ap.OverRideName : string.Empty);
+                }
+            }
+            else
+            {
+                textWriter.WriteLine("\nNo Such Class\n");
+            }
+        }
+
+        /// <summary>
+        /// The finish creating method - to flush the created file.
+        /// </summary>
+        /// <param name="prefix">
+        /// The prefix of the created file name.
+        /// </param>
+        /// <param name="path">
+        /// The path to write the file to.
+        /// </param>
+        public void FinishCreating(string path)
+        {
+            path = path + "{0}.{1}";
+
+            OxmLibrary.CodeGeneration.CodeTemplateWrapper wrapper = new CodeTemplateWrapper(currentCodeGenerator, this);
+            wrapper.WriteFile(Config.ProjectName, path);
+        }
+
+        /// <summary>
+        /// The finish creating method - to flush the created file.
+        /// </summary>
+        /// <param name="prefix">
+        /// The prefix of the created file name.
+        /// </param>
+        /// <param name="path">
+        /// The path to write the file to.
+        /// </param>
+        public void FinishCreating(Stream stream)
+        {
+            CodeTemplateWrapper wrapper = new CodeTemplateWrapper(currentCodeGenerator, this);
+            wrapper.WriteFile(Config.ProjectName, stream);
+        }
+
+        /// <summary>
+        /// The get class.
+        /// </summary>
+        /// <param name="key">
+        /// The key.
+        /// </param>
+        /// <returns>
+        /// </returns>
+        /// <exception cref="Exception">
+        /// </exception>
+        public ClassDescriptor GetClass(string key)
+        {
+            if (classes.ContainsKey(key))
+                return classes[key];
+            else
+                throw new Exception("No Such Class");
+        }
+
+        public bool TryGetClass(string key, out ClassDescriptor cd)
+        {
+            return classes.TryGetValue(key, out cd);
+        }
+
+        /// <summary>
+        /// Normalize data type version that adds "oxm" to the typename if unrecognized
+        /// </summary>
+        /// <param name="dataType"></param>
+        /// <returns></returns>
+        public string NormalizeDataType(string dataType)
+        {
+            return currentCodeGenerator.TypeConversion.ContainsKey(dataType) ?
+                currentCodeGenerator.TypeConversion[dataType] : dataType + "oxm";
+        }
+
+        public string NormalizeDataTypeToSystem(string dataType)
+        {
+            if (currentCodeGenerator.typeConversion.ContainsKey(dataType))
+            {
+                var interim = currentCodeGenerator.TypeConversion[dataType];
+                var systemType = Type.GetType("System." + interim, false, true);
+                return systemType != null ? systemType.FullName : interim;
+            }
+            if (classes.ContainsKey(dataType))
+                return dataType + "oxm";
+            return dataType;
+        }
+
+        /// <summary>
+        /// The get schema for a data set retrieval.
+        /// </summary>
+        /// <returns>
+        /// Nothing at the moment.
+        /// </returns>
+        public XmlSchema GetSchema()
+        {
+            return null;
+        }
+
+        /// <summary>
+        /// The make array - turns a property to a max count of 10 to force it to be an array.
+        /// </summary>
+        /// <param name="textWriter">
+        /// The text writer to write messages to.
+        /// </param>
+        /// <param name="className">
+        /// The class name, where the property resides.
+        /// </param>
+        /// <param name="propertyName">
+        /// The property Name.
+        /// </param>
+        public void MakeArray(TextWriter textWriter, string className, string propertyName)
+        {
+            if (!classes.Keys.Contains(className))
+            {
+                return;
+            }
+
+            var cls = classes[className];
+            if (cls.Keys.Contains(propertyName))
+            {
+                var prop = cls[propertyName];
+                prop.PMaxCount = 10;
+            }
+        }
+
+        /// <summary>
+        /// The merge into class.
+        /// </summary>
+        /// <param name="mainClass">
+        /// The main class.
+        /// </param>
+        /// <param name="listOfClases">
+        /// The list of clases.
+        /// </param>
+        public void MergeIntoClass(string mainClass, List<string> listOfClases)
+        {
+            ClassDescriptor newClass = classes[mainClass];
+            IEnumerable<ClassDescriptor> oldClasses = listOfClases.Select(a => classes[a]);
+            foreach (ClassDescriptor oldClass in oldClasses)
+            {
+                newClass.Merge(oldClass);
+                ChangeAllReferences(oldClass, newClass);
+            }
+
+            listOfClases.ForEach(removeIt => classes.Remove(removeIt));
+        }
+
+        /// <summary>
+        /// The read xml.
+        /// </summary>
+        /// <param name="r">
+        /// The r.
+        /// </param>
+        public void ReadXml(XmlReader r)
+        {
+            r.Read();
+            var serial = new XmlSerializer(typeof(GenerationConfiguration));
+            Config = (GenerationConfiguration)serial.Deserialize(r);
+            r.Read();
+            serial = new XmlSerializer(typeof(ClassDescriptor));
+            classes = new Dictionary<string, ClassDescriptor>();
+            while (r.NodeType != XmlNodeType.EndElement)
+            {
+                var k = serial.Deserialize(r) as ClassDescriptor;
+                classes.Add(k.ClassName, k);
+            }
+
+            r.Read();
+            if (r.Name == "Enumerations")
+            {
+                r.Read();
+                serial = new XmlSerializer(typeof(EnumerationDescriptor));
+                enumerations = new Dictionary<string, EnumerationDescriptor>();
+                while (r.NodeType != XmlNodeType.EndElement)
+                {
+                    var k = serial.Deserialize(r) as EnumerationDescriptor;
+                    enumerations.Add(k.Name, k);
+                }
+
+                r.Read();
+            }
+
+            r.Read();
+        }
+
+        /// <summary>
+        /// The save.
+        /// </summary>
+        /// <param name="path">
+        /// The path.
+        /// </param>
+        /// <returns>
+        /// The save.
+        /// </returns>
+        public bool Save(string path)
+        {
+            var serialize = new XmlSerializer(typeof(OxmGenerator3));
+            var writer = XmlWriter.Create(path);
+            serialize.Serialize(writer, this);
+            writer.Close();
+            return true;
+        }
+
+        /// <summary>
+        /// The set max classes.
+        /// </summary>
+        /// <param name="max">
+        /// The max.
+        /// </param>
+        public void SetMaxClasses(int max)
+        {
+            Config.MaxClassesInFile = max;
+        }
+
+        /// <summary>
+        /// The write xml.
+        /// </summary>
+        /// <param name="w">
+        /// The w.
+        /// </param>
+        public void WriteXml(XmlWriter w)
+        {
+            var serial = new XmlSerializer(typeof(GenerationConfiguration));
+            serial.Serialize(w, Config);
+            w.WriteStartElement("Classes");
+            serial = new XmlSerializer(typeof(ClassDescriptor));
+            foreach (var key in classes)
+            {
+                serial.Serialize(w, key.Value);
+            }
+
+            w.WriteEndElement();
+            w.WriteStartElement("Enumerations");
+            serial = new XmlSerializer(typeof(EnumerationDescriptor));
+            foreach (var key in enumerations)
+            {
+                serial.Serialize(w, key.Value);
+            }
+
+            w.WriteEndElement();
+        }
+
+        /// <summary>
+        /// The change all references from a class descriptor to another.
+        /// </summary>
+        /// <param name="p">
+        /// The class descriptor that was deleted
+        /// </param>
+        /// <param name="p_2">
+        /// The class descriptor to rename to.
+        /// </param>
+        private void ChangeAllReferences(ClassDescriptor deletedClass, ClassDescriptor newClass)
+        {
+            foreach (var oneclass in classes.Values)
+            {
+                if (oneclass.InheritsFrom == deletedClass.ClassName)
+                {
+                    oneclass.InheritsFrom = newClass.ClassName;
+                }
+
+                foreach (var prop in oneclass)
+                {
+                    var myprop = prop.Value;
+                    if (myprop.PType == deletedClass.OxmName)
+                    {
+                        myprop.PType = newClass.OxmName;
+                        myprop.OverRideName = newClass.ClassName;
+                    }
+                }
+            }
+        }
+
+        private void ParseElements(IEnumerable<XElement> iEnumerable, ClassDescriptor descriptor, int depth, string className)
+        {
+            XmlInferingHelpers xmlInfer = new XmlInferingHelpers(this);
+            var ElementsParsed = xmlInfer.ParseElements(iEnumerable, descriptor, depth, className);
+            AddClasses(ElementsParsed);
+        }
+
+        //Dictionary<string, ClassDescriptor> classes, Dictionary<string, EnumerationDescriptor> Enumerations,
+        private XSchemaCollection ParseIncludes(int depth, string xsd, string path)
+        {
+            XDocument doc;
+            Uri tryParse;
+            if (Uri.TryCreate(xsd, UriKind.Absolute, out tryParse))
+                doc = XDocument.Load(xsd);
+            else
+                doc = Path.IsPathRooted(xsd) ? XDocument.Load(xsd) : XDocument.Load(path + "\\" + xsd);
+            var targetNameSpace = ElementTargetNameSpace(doc);
+            XSchemaCollection allSchemas = new XSchemaCollection();
+            var elements = doc.Elements().ToList();
+            var theSchemaNode = elements.FirstOrDefault(a => a.Name.LocalName == "schema");
+
+            if (theSchemaNode == null)
+                return allSchemas;
+            allSchemas.Add(doc);
+            var schemaRoot = theSchemaNode.Elements().First();
+            var includes = schemaRoot.Descendants().Where(a => a.Name.LocalName == "include").ToList();
+
+            foreach (var item in includes)
+            {
+                allSchemas.Add(
+                        ParseIncludes(depth + 1, item.Attribute("schemaLocation").Value, path)
+                              );
+            }
+            try
+            {
+                while (schemaRoot.Name.LocalName != "element" && schemaRoot.Name.LocalName != "simpleType" && schemaRoot.Name.LocalName != "complexType")
+                {
+                    schemaRoot = schemaRoot.ElementsAfterSelf().FirstOrDefault();
+                }
+            }
+            catch (NullReferenceException)
+            {
+                //Empty schema - only includes
+                return allSchemas;
+            }
+
+            if (alreadyIncluded.Contains(xsd))
+                return allSchemas;
+            if (Configuration.PerformIndexation)
+                allSchemas.PerformIndexation();
+            XNode node = schemaRoot;
+
+            do
+            {
+                if (node is XElement)
+                {
+                    XSDHelpers.RecursiveParse(this, node as XElement, classes, enumerations, depth, allSchemas);
+                }
+            }
+            while ((node = node.NextNode) != null);
+            alreadyIncluded.Add(string.IsNullOrEmpty(targetNameSpace) ? xsd : targetNameSpace);
+            return allSchemas;
+        }
+
+        /// <summary>
+        /// The remove references to a deleted class name.
+        /// </summary>
+        /// <param name="className">
+        /// The class name that was removed.
+        /// </param>
+        private void RemoveReferences(string className)
+        {
+            var classNameAsOxm = className + "oxm";
+            foreach (var oneClass in classes.Select(a => a.Value))
+            {
+                var deleteList = new List<string>();
+                foreach (var prop in oneClass.Select(a => a.Value))
+                {
+                    if (prop.PType == classNameAsOxm)
+                    {
+                        deleteList.Add(prop.PName);
+                    }
+                }
+
+                deleteList.ForEach(deleted => oneClass.Remove(deleted));
+            }
+        }
+
+        #endregion Methods
+
+        public EnumerationDescriptor GetEnum(string name)
+        {
+            if (enumerations.ContainsKey(name))
+                return enumerations[name];
+            else
+                throw new InvalidOperationException("No such enumeration!");
+        }
+
+        #region IOxmGenerator Members
+
+        public CodeTemplateBase CodeGenerator
+        {
+            get { return Config.currentCodeGenerator; }
+            set { Config.currentCodeGenerator = value; }
+        }
+
+        public GenerationConfiguration Configuration
+        {
+            get { return Config; }
+        }
+
+
+        public string ClassToString(ClassDescriptor descriptor)
+        {
+            var turnToString = new StringWriter();
+            if (!string.IsNullOrEmpty(descriptor.Comments))
+            {
+                CodeGenerator.WriteXmlComment(turnToString, descriptor.Comments);
+            }
+
+            var inheritsFromString = descriptor.InheritsFrom == string.Empty ? TextHelper.FactoryName : descriptor.InheritsFrom != "Nothing" ? descriptor.InheritsFrom + "oxm" : string.Empty;
+
+            CodeGenerator.WriteClassTemplateHeader(turnToString, descriptor, inheritsFromString, Configuration.EnableDataBinding);
+
+            int complexArrays = 0;
+            string complexArrayName = string.Empty, complexReturnType = string.Empty;
+
+            foreach (var prop in descriptor.Values.Where(a => !a.DefaultValueOnly))
+            {
+                if (!string.IsNullOrEmpty(prop.Comments))
+                {
+                    CodeGenerator.WriteXmlComment(turnToString, prop.Comments);
+                }
+
+                int addedInfo = prop.PType.IndexOf(':');
+                var propertyType = prop.PType;
+                string validation = string.Empty;
+                if (addedInfo > -1)
+                {
+                    var added = prop.PType.Split(':');
+                    validation = added[1];
+                    propertyType = added[0];
+                }
+                propertyType = CodeGenerator.NormalizeDataType(propertyType);
+                CodeGenerator.WriteProperty(turnToString, prop, null, propertyType, validation, Config);
+                //if (Configuration.AutomaticProperties)
+                //{
+                //    turnToString.Write(prop.ToAutomaticProperty(propertyType, validation));
+                //}
+                //else
+                //{
+                //    turnToString.Write(prop.ToFullProperty(propertyType, validation));
+                //}
+
+                if (prop.PMaxCount > 1 && prop.Complex)
+                {
+                    complexArrays++;
+                    complexArrayName = prop.PName;
+                    complexReturnType = prop.OverRideName;
+                }
+            }
+
+            if (complexArrays == 1)
+            {
+                CodeGenerator.WriteIndexer(turnToString, complexArrayName, complexReturnType);
+            }
+
+            if (descriptor.Depth == 1 && descriptor.AdditionalConstructors.All(a => a.Parameters.Count != 1) && descriptor.InheritsFrom != "Nothing")
+            {
+                CodeGenerator.WriteDepthZeroConstructor(turnToString, descriptor);
+            }
+
+            if (Configuration.SetDefaultValuesInConstructor)
+            {
+                CodeGenerator.WriteDefaultValueConstructor(turnToString, descriptor);
+            }
+            else
+            {
+                CodeGenerator.WriteEmptyConstructor(turnToString, descriptor);
+            }
+
+            CodeGenerator.WriteClassTemplateFooter(turnToString, descriptor);
+            return turnToString.GetStringBuilder().ToString();
+        }
+
+        public string PropertyToString(PropertyDescriptor property, bool fullProperty, string propertyType, string validationRegex)
+        {
+            var turnToString = new StringWriter();
+            CodeGenerator.WriteProperty(turnToString, property, null, propertyType, validationRegex, Config);
+            return turnToString.GetStringBuilder().ToString();
+        }
+
+        #endregion
+
+        public CodeDomProvider Provider
+        {
+            get { return CodeGenerator.provider; }
+        }
+
+        public string GetFileName(string prefix)
+        {
+            string localName = theRoot != null
+                                   ? theRoot.Name.LocalName
+                                   :
+                                   classes.Count > 0 ? classes.FirstOrDefault(a => a.Value.Depth == 1).Value.ClassName : Config.ProjectName;
+            if (Config.ProjectName != null)
+                localName = Config.ProjectName;
+            localName = string.IsNullOrEmpty(prefix) ? localName : prefix;
+
+            string fileName = localName + "oxm";
+            return fileName;
+        }
+
+        #region IOxmGenerator Members
+
+
+        public bool TargetNamespaceAware
+        {
+            get { return Config.UseTargetNamespace; }
+        }
+
+        #endregion
+
+        public void TypographicalOrderOfClasses()
+        {
+            foreach (var item in this.classes.Values)
+            {
+                item.Depth = 1;
+            }
+            foreach (var item in this.classes.Values)
+            {
+                foreach (var property in item.Values)
+                {
+                    if (property.Complex && property.PType.EndsWith("oxm"))
+                    {
+                        var cl = this.GetClass(property.PType.Substring(0, property.PType.Length - 3));
+                        cl.Depth++;
+                    }
+                }
+            }
+        }        
+    }
+}

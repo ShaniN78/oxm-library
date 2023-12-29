@@ -1,0 +1,225 @@
+﻿using System;
+using System.Collections.Generic;
+using System.Linq;
+using System.Text;
+using System.Xml.Linq;
+
+namespace OxmLibrary.CodeGeneration
+{
+    public class XmlInferingHelpers
+    {
+        IOxmGenerator generator;
+
+        public XmlInferingHelpers(IOxmGenerator generator)
+        {
+            this.generator = generator;
+        }
+
+        /// <summary>
+        /// Recursively build the class dictionary
+        /// </summary>
+        /// <param name="element">
+        /// The element.
+        /// </param>
+        /// <param name="depth">
+        /// The depth.
+        /// </param>
+        /// <returns>
+        /// The turn element into class.
+        /// </returns>
+        public IEnumerable<ClassDescriptor> TurnElementIntoClass(XElement element, int depth)
+        {
+            ClassDescriptor descriptor = new ClassDescriptor(generator);
+            descriptor.Depth = depth;
+            descriptor.HasInnerTextProperty = false;
+            descriptor.OxmName = element.Name.LocalName + "oxm";
+
+            ParseAttributes(element.Attributes(), descriptor);
+            
+            foreach (var item in ParseElements(element.Elements(), descriptor, depth, element.Name.LocalName))
+            {
+                yield return item;   
+            }
+            
+
+            yield return descriptor;
+        }
+
+        /// <summary>
+        /// get all attributes name type (case insensitive
+        /// </summary>
+        /// <param name="attributes">
+        /// </param>
+        /// <returns>
+        /// The get type attribute.
+        /// </returns>
+        private string GetTypeAttribute(IEnumerable<XAttribute> attributes)
+        {
+            string type = (from att in attributes
+                           where att.Name.LocalName.ToLower() == "type"
+                           select att.Value.ToLower()).FirstOrDefault();
+            return type;
+        }
+
+        /// <summary>
+        /// The get value attribute.
+        /// </summary>
+        /// <param name="oneRes">
+        /// The one res.
+        /// </param>
+        /// <returns>
+        /// </returns>
+        private XAttribute GetValueAttribute(XElement oneRes)
+        {
+            XAttribute k = oneRes.Attribute("value");
+            if (k != null)
+                return k;
+            k = oneRes.Attribute("Value");
+            return k;
+        }
+
+        /// <summary>
+        /// The parse attributes.
+        /// </summary>
+        /// <param name="iEnumerable">
+        /// The i enumerable.
+        /// </param>
+        /// <param name="descriptor">
+        /// The descriptor.
+        /// </param>
+        private void ParseAttributes(IEnumerable<XAttribute> attributes, ClassDescriptor descriptor)
+        {
+            //IEnumerable<XAttribute> attributes = from att in iEnumerable
+            //                                     select att;
+            int attempt;
+            long longattempt;
+            float floatattempt;
+            bool tryToParseBool;
+            foreach (XAttribute oneAtt in attributes)
+            {
+                var prop = new PropertyDescriptor(generator);
+                prop.IsAttribute = true;
+                prop.PName = oneAtt.Name.LocalName;
+                prop.PMaxCount = 1;
+                prop.Complex = false;
+                if (int.TryParse(oneAtt.Value, out attempt))
+                    prop.PType = "int";
+                else if (long.TryParse(oneAtt.Value, out longattempt))
+                    prop.PType = "long";
+                else if (float.TryParse(oneAtt.Value, out floatattempt))
+                    prop.PType = "float";
+                else if (bool.TryParse(oneAtt.Value, out tryToParseBool))
+                    prop.PType = "bool";
+                else
+                    prop.PType = "string";
+                if (descriptor.Keys.Contains(prop.PName))
+                {
+                    descriptor[prop.PName].PType = TypeHandling.DownGrade(prop.PType, descriptor[prop.PName].PType);
+                    descriptor[prop.PName].PMaxCount = Math.Max(prop.PMaxCount, descriptor[prop.PName].PMaxCount);
+                }
+                else
+                    descriptor.Add(prop.PName, prop);
+            }
+        }
+
+        /// <summary>
+        /// The parse elements.
+        /// </summary>
+        /// <param name="iEnumerable">
+        /// The i enumerable.
+        /// </param>
+        /// <param name="descriptor">
+        /// The descriptor.
+        /// </param>
+        /// <param name="depth">
+        /// The depth.
+        /// </param>
+        /// <param name="className">
+        /// The class name.
+        /// </param>
+        public IEnumerable<ClassDescriptor> ParseElements(IEnumerable<XElement> iEnumerable, ClassDescriptor descriptor, int depth, string className)
+        {
+            int attempt;
+            long longattempt;
+            float floatattempt;
+            bool tryToParseBool;
+            var parseIt = from elem in iEnumerable
+                          group elem by elem.Name
+                              into oneOfThem
+                              select new
+                              {
+                                  Elements = oneOfThem,
+                                  Count = oneOfThem.Count()
+                              };
+            foreach (var element in parseIt)
+            {
+                if (element.Elements.First().Name.LocalName.ToLower() == "enum")
+                    continue;
+                foreach (XElement oneRes in element.Elements)
+                {
+                    var prop = new PropertyDescriptor(generator);
+                    prop.PName = oneRes.Name.LocalName;
+                    prop.PMaxCount = element.Count;
+                    string localName = oneRes.Name.LocalName;
+                    string value = oneRes.Value;
+                    string typeAtt = GetTypeAttribute(oneRes.Attributes());
+                    int atts = oneRes.Attributes().Count();
+                    XAttribute valueAtt = GetValueAttribute(oneRes);
+                    if (oneRes.Elements().Count() == 0 && atts == 1 &&
+                        oneRes.Attributes().First().Name.LocalName.ToLower() == "xmlns")
+                        atts--;
+                    if (oneRes.Elements().Count() == 0 && atts == 1 && valueAtt != null)
+                    {
+                        atts--;
+                        value = valueAtt.Value;
+                    }
+
+                    int number = oneRes.Elements().Count() + atts;
+                    if (typeAtt == "enum")
+                    {
+                        // Ignore enums for a while, the XML probably describes
+
+                        // data schema
+                    }
+
+                    if (number > 0)
+                    {
+                        var newClasses = TurnElementIntoClass(oneRes, depth + 1);
+                        foreach (var item in newClasses)
+                        {
+                            yield return item;
+                        }
+                        prop.OverRideName = oneRes.Name.LocalName;
+                        prop.PType = oneRes.Name.LocalName + "oxm";
+                        prop.Complex = true;
+                    }
+                    else
+                    {
+                        prop.Complex = false;
+                        if (int.TryParse(value, out attempt))
+                            prop.PType = "int";
+                        else if (long.TryParse(value, out longattempt))
+                            prop.PType = "long";
+                        else if (float.TryParse(value, out floatattempt))
+                            prop.PType = "float";
+                        else if (bool.TryParse(value, out tryToParseBool))
+                            prop.PType = "bool";
+                        else
+                            prop.PType = "string";
+                    }
+
+                    if (descriptor.Keys.Contains(localName))
+                    {
+                        if (!descriptor[localName].Complex)
+                            descriptor[localName].PType = TypeHandling.DownGrade(prop.PType, descriptor[localName].PType);
+                        descriptor[localName].PMaxCount = Math.Max(prop.PMaxCount, descriptor[localName].PMaxCount);
+                    }
+                    else
+                        descriptor.Add(localName, prop);
+                }
+            }
+            descriptor.TryToAddInnerText(parseIt.Count());
+            yield return descriptor;
+        }
+    }
+}

@@ -1,0 +1,26 @@
+﻿using System;
+using System.Collections.Generic;
+using System.Linq;
+using System.Windows.Forms;
+using System.IO;
+using OxmLibrary;
+using System.Diagnostics;
+using OxmLibrary.CodeGeneration;
+using System.Configuration;
+using System.Drawing.Design;
+namespace OxmLibrary.GUI
+{
+    static class Program
+    {
+        /// <summary>
+        /// The main entry point for the application.
+        /// </summary>
+        [STAThread]
+        static void Main()
+        {
+            Application.EnableVisualStyles();
+            Application.SetCompatibleTextRenderingDefault(false);
+            Application.Run(new MainWindow());
+        }
+    }
+}
