@@ -46,7 +46,7 @@
         #region Constructors
 
         public MainWindow()
-        {
+        {            
             InitializeComponent();
             ChangesWereMade(false);
             this.Text = Resources.Empty;
@@ -72,9 +72,9 @@
         {
             foreach (var oneClass in currentGenerator.ClassDetails)
             {
-                foreach (var prop in oneClass.Where(a => a.Value.PType == Args.Item))
+                foreach (var prop in oneClass.Where(a => a.PType == Args.Item))
                 {
-                    prop.Value.PType = Args.Item2;
+                    prop.PType = Args.Item2;
                 }
             }
         }

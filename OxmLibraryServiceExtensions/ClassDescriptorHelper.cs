@@ -46,14 +46,14 @@ namespace OxmLibrary.WSDLServiceExtensions
             {
                 if (member.HasGet && member.HasSet)
                 {
-                    var property = PropertyDescriptor.FromCodeMemberProperty(member, generator);
-                    descriptor.Add(property.PName, property);
+                    var property = PropertyDescriptor.FromCodeMemberProperty(member, generator, descriptor);
+                    descriptor.Add(property);
                 }
             }
 
             foreach (var member in codeType.Members.OfType<CodeMemberField>())
             {
-                var property = PropertyDescriptor.FromCodeFieldProperty(member, generator);
+                var property = PropertyDescriptor.FromCodeFieldProperty(member, generator, descriptor);
                 foreach (CodeAttributeDeclaration attribute in member.CustomAttributes)
                 {
                     switch (attribute.Name)
@@ -64,7 +64,7 @@ namespace OxmLibrary.WSDLServiceExtensions
                             break;
                     }
                 }
-                descriptor.Add(property.PName, property);
+                descriptor.Add(property);
             }
 
             foreach (var member in codeType.Members.OfType<CodeConstructor>())

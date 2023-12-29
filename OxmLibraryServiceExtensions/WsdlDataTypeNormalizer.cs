@@ -169,9 +169,9 @@ namespace OxmLibrary.WSDLServiceExtensions
             }
             else if (descriptor.Count > 0)
             {
-                foreach (var item in descriptor.Where(a => !a.Value.DefaultValueOnly))
+                foreach (var item in descriptor.Where(a => !a.DefaultValueOnly))
                 {
-                    result.Add(item.Value.AsCodeParameter(options.CustomCollectionType, FieldDirection.In, generator.NormalizeDataTypeToSystem));
+                    result.Add(item.AsCodeParameter(options.CustomCollectionType, FieldDirection.In, generator.NormalizeDataTypeToSystem));
                 }
                 return true;
             }
@@ -232,7 +232,7 @@ namespace OxmLibrary.WSDLServiceExtensions
                 }
                 else
                 {
-                    result = generator.NormalizeDataTypeToSystem(descriptor.First(a => !a.Value.DefaultValueOnly).Value.PType);
+                    result = generator.NormalizeDataTypeToSystem(descriptor.First(a => !a.DefaultValueOnly).PType);
                     return true;
                 }
             }

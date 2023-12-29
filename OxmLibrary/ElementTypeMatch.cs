@@ -139,7 +139,7 @@ namespace OxmLibrary
             ElementsCount = mappings.Count(a => a.IsElement);
         }
 
-        public IEnumerable<ElementTypeMapping> FindAll(Predicate<ElementTypeMapping> CheckFor)
+        public new IEnumerable<ElementTypeMapping> FindAll(Predicate<ElementTypeMapping> CheckFor)
         {
             foreach (var mapping in this)
             {

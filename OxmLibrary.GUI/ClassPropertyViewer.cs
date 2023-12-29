@@ -96,7 +96,7 @@ namespace OxmLibrary.GUI
         private void showClass()
         {
             propertiesView.DataSource = null;
-            propertiesView.DataSource = currentClass.Values.ToList();
+            propertiesView.DataSource = currentClass.ToList();
             //propertiesView.Items.AddRange(
               //     currentClass
                 //       .Select(oneprop => new ListViewItem(
@@ -161,7 +161,7 @@ namespace OxmLibrary.GUI
         {
             if (SelectedPropertyName == string.Empty)
                 return;
-            if (e.Button == MouseButtons.Right && currentClass.ContainsKey(SelectedPropertyName))
+            if (e.Button == MouseButtons.Right && currentClass.Contains(SelectedPropertyName))
             {
                 var theProp = CurrentClass[SelectedPropertyName];
                 editPropMenu.Items[2].Enabled = theProp.Complex;
@@ -186,7 +186,7 @@ namespace OxmLibrary.GUI
             var props = SelectedPropertiesNames;
             foreach (var item in props)
             {
-                if (CurrentClass.ContainsKey(item))
+                if (CurrentClass.Contains(item))
                 {
                     CurrentClass.DeleteProperty(item);
                     WriteToConsole(string.Format("Remove property {0}", item));
@@ -225,10 +225,10 @@ namespace OxmLibrary.GUI
 
             foreach (var item in currentClass)
             {
-                if (props.Contains(item.Key))
+                if (props.Contains(item.PName))
                 {
-                    item.Value.PMaxCount = 10;
-                    WriteToConsole("Changed property {0} into array", item.Key);
+                    item.PMaxCount = 10;
+                    WriteToConsole("Changed property {0} into array", item.PName);
                 }
             }
             OnChangesWereMade();

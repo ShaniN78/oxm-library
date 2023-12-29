@@ -1,6 +1,8 @@
 ﻿
-Microsoft Visual Studio Solution File, Format Version 10.00
-# Visual Studio 2008
+Microsoft Visual Studio Solution File, Format Version 12.00
+# Visual Studio Version 16
+VisualStudioVersion = 16.0.33529.622
+MinimumVisualStudioVersion = 10.0.40219.1
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "OxmLibrary.CodeGeneration", "OxmLibrary.CodeGeneration.csproj", "{CB974DD7-8213-4492-823C-A1D0BCE2B21E}"
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "OxmLibrary.Runtime", "..\OxmLibrary\OxmLibrary.Runtime.csproj", "{E39B0852-2302-4491-809D-F86C8F8A9F12}"
@@ -10,8 +12,6 @@ EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "OxmLibrary.GUI", "..\OxmLibrary.GUI\OxmLibrary.GUI.csproj", "{8E398BD5-BC77-4CDF-BCA3-00EEB167D5E7}"
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "GlassButton", "..\OxmLibrary\GlassButton\GlassButton.csproj", "{73A80AFA-C186-477A-A564-6936605AB6F0}"
-EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "OxmLibrary.VSAddIn", "..\OxmLibrary.VSAddIn\OxmLibrary.VSAddIn.csproj", "{EAA2FB68-509A-4D1A-B6BE-04DC95313FAC}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
@@ -39,12 +39,11 @@ Global
 		{73A80AFA-C186-477A-A564-6936605AB6F0}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{73A80AFA-C186-477A-A564-6936605AB6F0}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{73A80AFA-C186-477A-A564-6936605AB6F0}.Release|Any CPU.Build.0 = Release|Any CPU
-		{EAA2FB68-509A-4D1A-B6BE-04DC95313FAC}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
-		{EAA2FB68-509A-4D1A-B6BE-04DC95313FAC}.Debug|Any CPU.Build.0 = Debug|Any CPU
-		{EAA2FB68-509A-4D1A-B6BE-04DC95313FAC}.Release|Any CPU.ActiveCfg = Release|Any CPU
-		{EAA2FB68-509A-4D1A-B6BE-04DC95313FAC}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
+	EndGlobalSection
+	GlobalSection(ExtensibilityGlobals) = postSolution
+		SolutionGuid = {B8D878AA-2AB0-46FB-84B7-D09D2F104B21}
 	EndGlobalSection
 EndGlobal

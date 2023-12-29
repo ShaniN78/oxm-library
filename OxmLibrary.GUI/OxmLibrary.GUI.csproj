@@ -1,5 +1,5 @@
 ﻿<?xml version="1.0" encoding="utf-8"?>
-<Project ToolsVersion="3.5" DefaultTargets="Build" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+<Project ToolsVersion="Current" DefaultTargets="Build" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
   <PropertyGroup>
     <Configuration Condition=" '$(Configuration)' == '' ">Debug</Configuration>
     <Platform Condition=" '$(Platform)' == '' ">AnyCPU</Platform>
@@ -11,6 +11,11 @@
     <AssemblyName>OxmStylizer</AssemblyName>
     <TargetFrameworkVersion>v3.5</TargetFrameworkVersion>
     <FileAlignment>512</FileAlignment>
+    <FileUpgradeFlags>
+    </FileUpgradeFlags>
+    <UpgradeBackupLocation>
+    </UpgradeBackupLocation>
+    <OldToolsVersion>3.5</OldToolsVersion>
   </PropertyGroup>
   <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Debug|AnyCPU' ">
     <DebugSymbols>true</DebugSymbols>
@@ -32,10 +37,6 @@
   </PropertyGroup>
   <ItemGroup>
     <Reference Include="Microsoft.VisualBasic" />
-    <Reference Include="OxmLibrary.CodeGeneration, Version=1.0.0.0, Culture=neutral, processorArchitecture=MSIL">
-      <SpecificVersion>False</SpecificVersion>
-      <HintPath>..\OxmCodeGeneration\bin\Debug\OxmLibrary.CodeGeneration.dll</HintPath>
-    </Reference>
     <Reference Include="System" />
     <Reference Include="System.configuration" />
     <Reference Include="System.Core">
@@ -156,8 +157,12 @@
     </Compile>
   </ItemGroup>
   <ItemGroup>
+    <ProjectReference Include="..\OxmLibrary.CodeGeneration\OxmLibrary.CodeGeneration.csproj">
+      <Project>{cb974dd7-8213-4492-823c-a1d0bce2b21e}</Project>
+      <Name>OxmLibrary.CodeGeneration</Name>
+    </ProjectReference>
     <ProjectReference Include="..\OxmLibrary\GlassButton\GlassButton.csproj">
-      <Project>{73A80AFA-C186-477A-A564-6936605AB6F0}</Project>
+      <Project>{73a80afa-c186-477a-a564-6936605ab6f0}</Project>
       <Name>GlassButton</Name>
     </ProjectReference>
     <ProjectReference Include="..\OxmLibrary\OxmLibrary.Runtime.csproj">
