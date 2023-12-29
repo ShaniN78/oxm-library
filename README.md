@@ -1,4 +1,4 @@
-# oxm-library
+# OXM-Library
 Object To XML Mapping and parsing XSD/WSDL into classes
 
 Free XSD Code Generator of c# / VB Classes from XSD files.
