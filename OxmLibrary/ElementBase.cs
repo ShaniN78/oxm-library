@@ -1,4 +1,4 @@
-﻿namespace OxmLibrary
+namespace OxmLibrary
 {
     using System;
     using System.Collections;
@@ -101,7 +101,7 @@
         {
             Parent = parent;
             if (ElementName != IName)
-                throw new Exception("Invalid Parse request - element name does not match class");
+                throw new ArgumentException("Element name does not match class.", nameof(IName));
             var type = this.GetType();
 
 
@@ -175,7 +175,7 @@
         {
             Parent = parent;
             if (IName != ElementName)
-                throw new Exception("Not A Package");
+                throw new InvalidOperationException("Element name does not match this package type.");
 
             var type = this.GetType();
             var Parser = ElementsParseCaching.GetParseDictionary(type, IName);

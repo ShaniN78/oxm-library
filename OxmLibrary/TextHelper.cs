@@ -1,81 +1,67 @@
-﻿// --------------------------------------------------------------------------------------------------------------------
+// --------------------------------------------------------------------------------------------------------------------
 // <copyright file="TextHelper.cs" company="Mosh Productions.">
-//  All rights reserved. 
+//  All rights reserved.
 // </copyright>
-// <summary>
-//   Defines the TextHelper type.
-// </summary>
+// <summary>Defines the TextHelper type.</summary>
 // --------------------------------------------------------------------------------------------------------------------
 
-namespace OxmLibrary
+using System;
+using System.IO;
+using System.Linq;
+using System.Text;
+
+namespace OxmLibrary;
+
+/// <summary>Helper methods for text and static readonly fields used by the code generator.</summary>
+public static class TextHelper
 {
-    using System;
-    using System.Collections.Generic;
-    using System.IO;
-    using System.Linq;
-    using System.Text;
+    /// <summary>Standard namespaces to include in generated code (using directives).</summary>
+    public static readonly string[] STANDARDNAMESPACES = { "System", "System.Xml.Linq", "System.Linq", "OxmLibrary", "System.Xml.Serialization" };
 
-    /// <summary>
-    /// Helping method for textual purposes and static readonly fields.
-    /// </summary>
-    public static class TextHelper
+    public const string opener = "{\r\n";
+    public const string closer = "}\r\n";
+    public const string LINEDOWN = "\r\n";
+    public const string OXMREGEXVALIDATOR = "OxmRegexValidatorAttribute";
+    public const string XMLATTRIBUTENAME = "OxmXmlAttribute";
+    public const string OVERRIDEATTRIBUTENAME = "OxmOverrideElementName";
+
+    /// <summary>Factory name used before generating classes.</summary>
+    public static string FactoryName { get; set; }
+
+    /// <summary>Error/diagnostic writer for the project.</summary>
+    public static TextWriter ConsoleWriter { get; set; }
+
+    /// <summary>Returns a string containing only letter characters from the input.</summary>
+    public static string TrimNonLetters(string input)
     {
-        /// <summary>
-        /// all the standard namespace to imprt/using
-        /// </summary>        
-        public static readonly string[] STANDARDNAMESPACES = { "System", "System.Xml.Linq" ,"System.Linq", "OxmLibrary", "System.Xml.Serialization" };
-        public const string opener = "{\r\n";
-        public const string closer = "}\r\n";
-        public const string LINEDOWN = "\r\n";
-        public const string OXMREGEXVALIDATOR = "OxmRegexValidatorAttribute";
-        public const string XMLATTRIBUTENAME = "OxmXmlAttribute";
-        public const string OVERRIDEATTRIBUTENAME = "OxmOverrideElementName";
-
-        /// <summary>
-        /// Gets or sets FactoryName before generating classes.
-        /// </summary>
-        public static string FactoryName { get; set; }
-
-        /// <summary>
-        /// Gets or sets errorWriter for the whole project.
-        /// </summary>
-        public static TextWriter ConsoleWriter { get; set; }
-
-        /// <summary>
-        /// Trim all non letters from a string.
-        /// </summary>
-        /// <param name="input"></param>
-        /// <returns></returns>
-        public static string TrimNonLetters(string input)
+        if (string.IsNullOrEmpty(input))
+            return string.Empty;
+        var sb = new StringBuilder(input.Length);
+        foreach (var c in input)
         {
-            var sb = new StringBuilder(input.Length);
-            foreach (var item in input)
-            {
-                if (char.IsLetter(item))
-                    sb.Append(item);
-            }
-            return sb.ToString();
+            if (char.IsLetter(c))
+                sb.Append(c);
         }
+        return sb.ToString();
+    }
 
-        /// <summary>
-        /// Trim all non letters from a string.
-        /// </summary>
-        /// <param name="input"></param>
-        /// <returns></returns>
-        public static string TrimNonLettersAndDigits(string input)
+    /// <summary>Returns a string containing only letter and digit characters from the input.</summary>
+    public static string TrimNonLettersAndDigits(string input)
+    {
+        if (string.IsNullOrEmpty(input))
+            return string.Empty;
+        var sb = new StringBuilder(input.Length);
+        foreach (var c in input)
         {
-            var sb = new StringBuilder(input.Length);
-            foreach (var item in input)
-            {
-                if (char.IsLetter(item) || char.IsDigit(item))
-                    sb.Append(item);
-            }
-            return sb.ToString();
+            if (char.IsLetter(c) || char.IsDigit(c))
+                sb.Append(c);
         }
+        return sb.ToString();
+    }
 
-        public static string TrimNonLetter2(string input)
-        {
-            return new string(input.Where(char.IsLetter).ToArray());
-        }
+    /// <summary>Returns a string containing only letter characters (LINQ variant).</summary>
+    public static string TrimNonLetter2(string input)
+    {
+        return string.IsNullOrEmpty(input) ? string.Empty : new string(input.Where(char.IsLetter).ToArray());
     }
 }

@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
@@ -25,7 +25,7 @@ namespace OxmLibrary.CodeGeneration
         {            
             var name = XEl.Attribute("name");
             if (name == null)
-                throw new Exception("No Element name found for " + XEl.ToString());
+                throw new ArgumentException("No element name attribute found.", nameof(XEl));
             if (path.Count(a => a == name.Value) > 2)
                 return;
             path.Add(name.Value);

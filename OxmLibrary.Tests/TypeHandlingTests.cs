@@ -14,9 +14,9 @@ namespace OxmLibrary.Tests
         [InlineData("float", true)]
         [InlineData("long", true)]
         [InlineData("INVALID", false)]
-        public void IsKnownPrimiveType_ReturnsExpected(string typeName, bool expected)
+        public void IsKnownPrimitiveType_ReturnsExpected(string typeName, bool expected)
         {
-            Assert.Equal(expected, TypeHandling.IsKnownPrimiveType(typeName));
+            Assert.Equal(expected, TypeHandling.IsKnownPrimitiveType(typeName));
         }
 
         [Fact]
