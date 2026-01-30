@@ -15,6 +15,13 @@ To run the GUI (OxmStylizer):
 dotnet run --project OxmLibrary.GUI
 ```
 
+To run tests (after `dotnet restore`):
+```bash
+dotnet test OxmLibrary.Tests
+```
+
+For improvement priorities and agent guidance, see [AGENT.md](AGENT.md).
+
 ---
 I need your feedback.
 Leave a review or a suggestion, with ideas and requests, I will do my best to implement them
@@ -54,8 +61,5 @@ It's now working on two production servers in a medium sized web application.
 
 Also supplied is an ElementBaseWriter class to produce XML strings (or files) from Classes.
 Supported also through the ToString Method of every class derived from ElementBase Class
-
-A few Examples:
-Example Page
 
 
