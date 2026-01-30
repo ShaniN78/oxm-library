@@ -10,7 +10,11 @@
     <Product>OxmLibrary</Product>
     <Copyright>Copyright © Mosh Production 2008</Copyright>
     <GenerateAssemblyInfo>true</GenerateAssemblyInfo>
+    <GenerateDocumentationFile>true</GenerateDocumentationFile>
     <Nullable>disable</Nullable>
+    <PackageId>OxmLibrary</PackageId>
+    <PackageLicenseExpression>Apache-2.0</PackageLicenseExpression>
+    <RepositoryType>git</RepositoryType>
   </PropertyGroup>
   <ItemGroup>
     <Compile Remove="GlassButton\**\*" />

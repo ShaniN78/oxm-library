@@ -1,6 +1,61 @@
-bin/
-.git
+# Build
+[Bb]in/
+[Oo]bj/
+[Dd]ebug/
+[Rr]elease/
+x64/
+x86/
+[Aa][Rr][Mm]/
+[Aa][Rr][Mm]64/
+bld/
+[Bb]uild/
+out/
+
+# Visual Studio / Rider / VS Code
+.vs/
+*.user
+*.userosscache
+*.sln.docstates
+*.suo
+.idea/
+.vscode/
+*.rsuser
+
+# NuGet
+packages/
+*.nupkg
+*.snupkg
+.nuget/
+project.lock.json
+project.fragment.lock.json
+artifacts/
+
+# Source control
 .git/
-.svn
-.vs
-obj/ 
+.gitattributes
+.svn/
+*.vspscc
+*.vssscc
+vssver2.scc
+
+# OS / IDE
+Thumbs.db
+ehthumbs.db
+Desktop.ini
+.DS_Store
+*.log
+*.tmp
+*.temp
+*.swp
+*~
+
+# Test / coverage
+[Tt]est[Rr]esult*/
+[Cc]overage/
+*.trx
+*.coverage
+*.coveragexml
+
+# Signing (keep .snk if intentional; uncomment to ignore)
+# *.pfx
+# *.snk
