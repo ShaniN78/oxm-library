@@ -1,7 +1,21 @@
 # OXM-Library
 Object To XML Mapping and parsing XSD/WSDL into classes
 
-Free XSD Code Generator of c# / VB Classes from XSD files.
+Free XSD Code Generator of C# / VB classes from XSD files. **Targets .NET 8.**
+
+## Building
+Requires [.NET 8 SDK](https://dotnet.microsoft.com/download/dotnet/8.0).
+
+```bash
+dotnet build OxmLibrary.sln
+```
+
+To run the GUI (OxmStylizer):
+```bash
+dotnet run --project OxmLibrary.GUI
+```
+
+---
 I need your feedback.
 Leave a review or a suggestion, with ideas and requests, I will do my best to implement them
 
@@ -15,7 +29,7 @@ Merging of similar Classes Based on automatic rules, or manually
 Parsing Of Regular expression validation rules as metadata
 Parsing of Default values from the attribute value=X and assigning it in the constructor
 Parsing Of Annotations per class/type
-Generate Enumerations for types resrticted with enum (With annotations)
+Generate Enumerations for types restricted with enum (With annotations)
 Force Multiplicity on properties when XSD states otherwise (You can fix XSD also, lol)
 Does not rely on serialization or de-serialization - instead uses Linq To XML and reflection.
 Enable Data Binding Via The INotifyPropertyChanged Interface
