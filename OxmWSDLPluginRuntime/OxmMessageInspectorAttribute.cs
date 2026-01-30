@@ -1,11 +1,10 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
 using System.ServiceModel.Description;
 using System.ServiceModel.Channels;
 using System.ServiceModel.Dispatcher;
-using System.ServiceModel.Configuration;
 
 namespace OxmLibrary.WSDLRuntime
 {
@@ -20,7 +19,7 @@ namespace OxmLibrary.WSDLRuntime
 
         public void ApplyClientBehavior(ContractDescription contractDescription, ServiceEndpoint endpoint, ClientRuntime clientRuntime)
         {
-            clientRuntime.MessageInspectors.Add(new OXMMessageInspector());
+            clientRuntime.ClientMessageInspectors.Add(new OXMMessageInspector());
         }
 
         public void ApplyDispatchBehavior(ContractDescription contractDescription, ServiceEndpoint endpoint, DispatchRuntime dispatchRuntime)
