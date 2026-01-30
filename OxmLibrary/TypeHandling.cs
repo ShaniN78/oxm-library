@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
@@ -42,9 +42,14 @@ namespace OxmLibrary
             AddType(typeof(char));
         }
 
-        public static bool IsKnownPrimiveType(string typeName)
+        /// <summary>Obsolete: use <see cref="IsKnownPrimitiveType"/> (correct spelling).</summary>
+        [Obsolete("Use IsKnownPrimitiveType instead.")]
+        public static bool IsKnownPrimiveType(string typeName) => IsKnownPrimitiveType(typeName);
+
+        /// <summary>Returns true if the type name is a known primitive (string, int, bool, DateTime, etc.).</summary>
+        public static bool IsKnownPrimitiveType(string typeName)
         {
-            return (BasicDataTypes.Contains(typeName, StringComparer.OrdinalIgnoreCase));
+            return BasicDataTypes.Contains(typeName, StringComparer.OrdinalIgnoreCase);
         }
 
         public static object DefaultValue(Type prop)
@@ -126,13 +131,14 @@ namespace OxmLibrary
         public static Dictionary<string, string> GetListItems(Type enumType)
         {
             if (!enumType.IsEnum)
-                throw new ApplicationException("GetListItems does not support non-enum types");
+                throw new ArgumentException("GetListItems only supports enum types.", nameof(enumType));
             Dictionary<string, string> list = new Dictionary<string, string>();
             foreach (FieldInfo field in enumType.GetFields(BindingFlags.Static | BindingFlags.GetField | BindingFlags.Public))
             {
                 string value = Enum.GetName(enumType, field.GetValue(null));
                 string display = value;
-                var valueAttribute = field.GetCustomAttributes(false).OfType<System.Xml.Serialization.XmlEnumAttribute>().FirstOrDefault();
+                var valueAttribute = field.GetCustomAttributes(typeof(System.Xml.Serialization.XmlEnumAttribute), inherit: false)
+                    .OfType<System.Xml.Serialization.XmlEnumAttribute>().FirstOrDefault();
                 if (valueAttribute != null)
                     display = valueAttribute.Name;
                 

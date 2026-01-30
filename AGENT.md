@@ -14,6 +14,14 @@ This file gives AI agents and contributors context and a prioritized plan for im
   - **OxmLibrary.WSDLRuntime** — WCF client runtime (contract serializer, message inspector).
   - **GlassButton** — WinForms control used by GUI.
 
+## Modernization (recent)
+
+- **.editorconfig**: C# style (var, pattern matching, file-scoped namespaces preferred, braces, etc.).
+- **Exceptions**: Replaced generic `Exception`/`ApplicationException` with `ArgumentException`, `InvalidOperationException`, `KeyNotFoundException` where appropriate (ElementBase, TypeHandling, XSDHelpers, OxmGenerator3).
+- **TypeHandling**: `IsKnownPrimitiveType` added (correct spelling); `IsKnownPrimiveType` kept as obsolete. `GetCustomAttributes(false)` replaced with `GetCustomAttributes(type, inherit: false)`.
+- **ElementBaseWriterSettings** and **TextHelper**: File-scoped namespaces, clearer XML docs, null-safe trim helpers.
+- **NetAnalyzers**: Not added as a package (restore can fail in some environments). Add `Microsoft.CodeAnalysis.NetAnalyzers` to OxmLibrary.Runtime when NuGet is available for extra diagnostics.
+
 ## Repo layout
 
 ```

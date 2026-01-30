@@ -1,4 +1,4 @@
-﻿#region Header
+#region Header
 
 // --------------------------------------------------------------------------------------------------------------------
 // <copyright company="Mosh Productions." file="OxmGenerator3.cs">
@@ -637,10 +637,9 @@ namespace OxmLibrary.CodeGeneration
         /// </exception>
         public ClassDescriptor GetClass(string key)
         {
-            if (classes.ContainsKey(key))
-                return classes[key];
-            else
-                throw new Exception("No Such Class");
+            if (classes.TryGetValue(key, out var cd))
+                return cd;
+            throw new KeyNotFoundException($"No class found for key: {key}");
         }
 
         public bool TryGetClass(string key, out ClassDescriptor cd)
