@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
@@ -73,13 +73,11 @@ namespace OxmLibrary
         }
 
         /// <summary>
-        /// Produce a string from the ElementBase without using The XElement class
-        /// should be ElementBase in order for it to work as expected.
+        /// Produce a string from the ElementBase without using The XElement class.
+        /// Should be ElementBase in order for it to work as expected.
         /// </summary>
         /// <param name="element">Element to write</param>
-        /// <param name="contentsOnly">Omit opening tag and closing tag of the outerElement</param>
-        /// <param name="prefix">Prefix to add to sub elements - can be null</param>
-        /// <param name="appendNamespace">Add namespaces to elements</param>
+        /// <param name="settings">Writer settings (contentsOnly, prefix, appendNamespace, etc.)</param>
         /// <returns>Serialized xml of the element</returns>
         public static string WriteNoXElement(ElementBase element, ElementBaseWriterSettings settings)
         {
@@ -167,11 +165,12 @@ namespace OxmLibrary
         }        
 
         /// <summary>
-        /// Produce a string from the ElementBase without using The XElement class
+        /// Produce a string from the ElementBase without using The XElement class.
         /// </summary>
         /// <param name="writer">TextWriter to write the output into</param>
         /// <param name="element">Current element</param>
-        /// <param name="factory">Element that initiated the process</param>
+        /// <param name="properties">Element type match / property wrappers for writing</param>
+        /// <param name="appendNamespace">Whether to add xmlns attribute</param>
         public void WriteNoXElement(TextWriter writer, ElementBase element, ElementTypeMatch properties, bool appendNamespace)
         {
             WriteNoXElement(writer, element, properties, appendNamespace, element.ElementName);            
